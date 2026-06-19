@@ -1,0 +1,3106 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0">
+<title>City Appliance Hub</title>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link href="https://fonts.googleapis.com/css2?family=Barlow+Condensed:wght@500;600;700&family=Inter:wght@400;500;600&family=JetBrains+Mono:wght@400;600&display=swap" rel="stylesheet">
+<style>
+:root{
+  --bg:#0D1B2A;--panel:#162436;--card:#1C2E42;--border:#253D57;
+  --teal:#00C9B1;--teal-d:#00857A;--amber:#F5A623;--red:#E8455A;
+  --green:#2ECC71;--blue:#4A9EDB;--coral:#E8623A;
+  --text:#DDE8F0;--muted:#5C7A96;--faint:#334D66;
+  --mono:'JetBrains Mono',monospace;--cond:'Barlow Condensed',sans-serif;--body:'Inter',sans-serif;
+  --nw:210px;
+}
+*{box-sizing:border-box;margin:0;padding:0;}
+body{background:var(--bg);color:var(--text);font-family:var(--body);min-height:100vh;display:flex;overflow-x:hidden;}
+
+/* NAV */
+#nav{width:var(--nw);flex-shrink:0;background:var(--panel);border-right:1px solid var(--border);display:flex;flex-direction:column;position:fixed;top:0;left:0;bottom:0;z-index:50;transition:transform .25s;}
+.nav-logo{padding:16px 14px 12px;border-bottom:1px solid var(--border);}
+.nav-logo .mark{font-family:var(--cond);font-size:20px;font-weight:700;color:var(--teal);letter-spacing:.04em;}
+.nav-logo .sub{font-size:10px;color:var(--muted);letter-spacing:.1em;text-transform:uppercase;margin-top:2px;}
+.nav-group{font-size:9px;font-weight:600;letter-spacing:.14em;text-transform:uppercase;color:var(--muted);padding:10px 14px 3px;}
+.nav-trace{position:relative;padding:0 8px;}
+.nav-trace::before{content:'';position:absolute;left:20px;top:0;bottom:0;width:1px;background:var(--border);}
+.ni{position:relative;display:flex;align-items:center;gap:9px;padding:8px 10px 8px 26px;border-radius:7px;cursor:pointer;font-size:12px;font-weight:500;color:var(--muted);transition:color .15s,background .15s;margin-bottom:1px;border:none;background:none;width:100%;text-align:left;}
+.ni::before{content:'';position:absolute;left:16px;top:50%;width:8px;height:1px;background:var(--border);}
+.ni-dot{position:absolute;left:12px;top:50%;transform:translateY(-50%);width:8px;height:8px;border-radius:50%;background:var(--border);border:1.5px solid var(--border);z-index:1;transition:all .15s;}
+.ni.active{color:var(--teal);}
+.ni.active .ni-dot{background:var(--teal);border-color:var(--teal);box-shadow:0 0 7px var(--teal);}
+.ni:hover{color:var(--text);}
+.ni:hover .ni-dot{background:var(--teal-d);border-color:var(--teal-d);}
+.ni-icon{font-size:14px;width:16px;text-align:center;}
+.ni-badge{margin-left:auto;min-width:17px;height:17px;background:var(--red);color:#fff;border-radius:9px;font-size:10px;font-weight:600;display:inline-flex;align-items:center;justify-content:center;padding:0 4px;}
+.ni-badge.warn{background:var(--amber);color:var(--bg);}
+.nav-div{height:1px;background:var(--border);margin:6px 12px;}
+.nav-bot{margin-top:auto;padding:12px 14px;border-top:1px solid var(--border);font-size:10px;color:var(--muted);}
+
+/* MAIN */
+#main{margin-left:var(--nw);flex:1;display:flex;flex-direction:column;min-height:100vh;}
+.topbar{background:var(--panel);border-bottom:1px solid var(--border);padding:11px 22px;display:flex;align-items:center;gap:12px;position:sticky;top:0;z-index:40;}
+#menu-btn{display:none;background:none;border:none;color:var(--text);font-size:20px;cursor:pointer;padding:2px 6px;}
+.topbar-title{font-family:var(--cond);font-size:19px;font-weight:600;letter-spacing:.03em;flex:1;}
+.topbar-right{font-size:11px;color:var(--muted);}
+.cutoff-chip{background:rgba(232,69,90,.15);border:1px solid rgba(232,69,90,.3);border-radius:6px;padding:3px 10px;font-size:11px;font-weight:600;color:var(--red);font-family:var(--mono);}
+.cutoff-chip.ok{background:rgba(46,204,113,.1);border-color:rgba(46,204,113,.3);color:var(--green);}
+
+.content{padding:20px;flex:1;}
+.page{display:none;}.page.active{display:block;}
+
+/* CARDS */
+.card{background:var(--card);border:1px solid var(--border);border-radius:11px;padding:16px;}
+.card-label{font-size:10px;font-weight:600;letter-spacing:.1em;text-transform:uppercase;color:var(--muted);margin-bottom:5px;}
+.card-value{font-family:var(--cond);font-size:30px;font-weight:700;color:var(--teal);}
+.g2{display:grid;grid-template-columns:1fr 1fr;gap:14px;}
+.g3{display:grid;grid-template-columns:repeat(3,1fr);gap:14px;}
+.g4{display:grid;grid-template-columns:repeat(4,1fr);gap:14px;}
+
+/* INPUTS */
+input[type=text],input[type=number],input[type=date],input[type=search],select,textarea{
+  background:var(--card);border:1.5px solid var(--border);border-radius:7px;
+  color:var(--text);padding:9px 12px;font-family:var(--body);font-size:13px;
+  outline:none;transition:border-color .15s;width:100%;
+}
+input:focus,select:focus,textarea:focus{border-color:var(--teal);}
+select option{background:var(--card);}
+label.lbl{font-size:11px;font-weight:500;color:var(--muted);display:block;margin-bottom:4px;}
+.fw{flex:1;min-width:0;}
+.frow{display:flex;gap:10px;margin-bottom:12px;flex-wrap:wrap;}
+
+/* BUTTONS */
+.btn{display:inline-flex;align-items:center;gap:7px;padding:9px 16px;border-radius:7px;font-family:var(--body);font-size:12px;font-weight:600;cursor:pointer;border:none;transition:opacity .15s,transform .1s;white-space:nowrap;}
+.btn:active{transform:scale(.97);}
+.btn-p{background:var(--teal);color:var(--bg);}
+.btn-g{background:transparent;color:var(--teal);border:1.5px solid var(--teal);}
+.btn-a{background:var(--amber);color:var(--bg);}
+.btn-r{background:var(--red);color:#fff;}
+.btn-m{background:var(--border);color:var(--text);}
+.btn-coral{background:var(--coral);color:#fff;}
+.btn:disabled{opacity:.4;cursor:not-allowed;}
+.btn-sm{padding:6px 12px;font-size:11px;}
+.arow{display:flex;gap:9px;flex-wrap:wrap;margin-top:14px;}
+
+/* SECTION HEADERS */
+.pg-title{font-family:var(--cond);font-size:22px;font-weight:600;letter-spacing:.03em;margin-bottom:3px;}
+.pg-sub{font-size:12px;color:var(--muted);margin-bottom:18px;}
+
+/* ALERTS */
+.alert{border-radius:8px;padding:9px 13px;display:flex;align-items:flex-start;gap:9px;font-size:12px;margin-bottom:10px;}
+.alert-icon{font-size:15px;flex-shrink:0;margin-top:1px;}
+.alert-warn{background:rgba(245,166,35,.1);border:1px solid rgba(245,166,35,.3);color:var(--amber);}
+.alert-red{background:rgba(232,69,90,.1);border:1px solid rgba(232,69,90,.3);color:var(--red);}
+.alert-green{background:rgba(46,204,113,.1);border:1px solid rgba(46,204,113,.3);color:var(--green);}
+.alert-blue{background:rgba(74,158,219,.1);border:1px solid rgba(74,158,219,.3);color:var(--blue);}
+.alert-teal{background:rgba(0,201,177,.1);border:1px solid rgba(0,201,177,.3);color:var(--teal);}
+
+/* TABLES */
+.tbl-wrap{overflow-x:auto;border-radius:9px;border:1px solid var(--border);}
+table{width:100%;border-collapse:collapse;font-size:12px;}
+th{background:var(--panel);padding:9px 13px;text-align:left;font-size:9px;font-weight:600;letter-spacing:.09em;text-transform:uppercase;color:var(--muted);border-bottom:1px solid var(--border);white-space:nowrap;}
+td{padding:11px 13px;border-bottom:1px solid var(--border);vertical-align:middle;}
+tr:last-child td{border-bottom:none;}
+tr:hover td{background:rgba(0,201,177,.03);}
+.mono{font-family:var(--mono);font-size:11px;}
+.badge{display:inline-block;padding:2px 8px;border-radius:20px;font-size:10px;font-weight:600;white-space:nowrap;}
+.b-green{background:rgba(46,204,113,.15);color:var(--green);}
+.b-amber{background:rgba(245,166,35,.15);color:var(--amber);}
+.b-red{background:rgba(232,69,90,.15);color:var(--red);}
+.b-blue{background:rgba(74,158,219,.15);color:var(--blue);}
+.b-teal{background:rgba(0,201,177,.15);color:var(--teal);}
+.b-muted{background:rgba(92,122,150,.15);color:var(--muted);}
+.b-coral{background:rgba(232,98,58,.15);color:var(--coral);}
+
+/* CHAT */
+.chat-wrap{background:var(--card);border:1px solid var(--border);border-radius:11px;display:flex;flex-direction:column;}
+.chat-msgs{flex:1;overflow-y:auto;padding:14px;display:flex;flex-direction:column;gap:10px;max-height:420px;min-height:200px;}
+.msg{max-width:88%;border-radius:9px;padding:10px 13px;font-size:12px;line-height:1.55;}
+.msg.ai{background:var(--panel);border:1px solid var(--border);}
+.msg.ai .mlbl{font-size:9px;font-weight:600;letter-spacing:.09em;text-transform:uppercase;color:var(--muted);margin-bottom:5px;}
+.msg.user{background:var(--teal-d);color:#fff;margin-left:auto;}
+.msg pre,.msg code{font-family:var(--mono);font-size:10px;background:var(--bg);padding:8px;border-radius:5px;overflow-x:auto;display:block;margin-top:6px;white-space:pre-wrap;}
+.chat-in{border-top:1px solid var(--border);padding:10px;display:flex;gap:8px;}
+.chat-in textarea{resize:none;height:40px;padding:9px 11px;font-size:12px;}
+.typing span{display:inline-block;width:5px;height:5px;border-radius:50%;background:var(--teal);animation:blink 1.1s infinite;}
+.typing span:nth-child(2){animation-delay:.18s;}
+.typing span:nth-child(3){animation-delay:.36s;}
+@keyframes blink{0%,80%,100%{opacity:.2;}40%{opacity:1;}}
+
+/* PART PILLS */
+.pill-row{display:flex;gap:7px;flex-wrap:wrap;margin-top:10px;}
+.pill{border-radius:7px;padding:6px 10px;font-size:11px;display:flex;align-items:center;gap:5px;cursor:pointer;font-weight:500;}
+.pill-stock{background:rgba(46,204,113,.12);border:1px solid rgba(46,204,113,.3);color:var(--green);}
+.pill-order{background:rgba(245,166,35,.12);border:1px solid rgba(245,166,35,.3);color:var(--amber);}
+
+/* SCAN */
+.scan-box{border:2px dashed var(--border);border-radius:11px;padding:28px 16px;text-align:center;background:var(--card);transition:border-color .2s;margin-bottom:16px;}
+.scan-box.drag{border-color:var(--teal);}
+.scan-frame{width:140px;height:96px;margin:0 auto 14px;position:relative;}
+.scan-frame svg{width:100%;height:100%;}
+.scan-line{position:absolute;left:8%;right:8%;height:2px;background:var(--teal);top:20%;animation:ssweep 2s ease-in-out infinite;box-shadow:0 0 8px var(--teal);border-radius:2px;}
+@keyframes ssweep{0%,100%{top:20%;opacity:.6;}50%{top:78%;opacity:1;}}
+
+/* DAYS BAR */
+.days-bar{height:5px;border-radius:3px;background:var(--border);margin-top:5px;overflow:hidden;width:80px;}
+.days-fill{height:100%;border-radius:3px;}
+
+/* LOADING */
+.lbar{height:3px;background:linear-gradient(90deg,var(--teal),var(--teal-d),var(--teal));background-size:200% 100%;border-radius:2px;display:none;animation:shimmer 1.2s infinite;}
+@keyframes shimmer{0%{background-position:200% 0}100%{background-position:-200% 0}}
+.spin{display:none;text-align:center;padding:12px;color:var(--muted);font-size:12px;}
+
+/* PRICING CARDS */
+.price-opts{display:grid;grid-template-columns:repeat(auto-fit,minmax(180px,1fr));gap:12px;margin-top:12px;}
+.price-opt{background:var(--panel);border:1px solid var(--border);border-radius:10px;padding:14px;}
+.price-opt.best{border-color:var(--teal);}
+.price-opt .po-label{font-size:9px;font-weight:600;letter-spacing:.1em;text-transform:uppercase;color:var(--muted);margin-bottom:5px;}
+.price-opt .po-total{font-family:var(--cond);font-size:26px;font-weight:700;color:var(--teal);margin-bottom:3px;}
+.price-opt .po-eta{font-size:11px;color:var(--muted);margin-bottom:8px;}
+.price-opt .po-margin{font-size:10px;color:var(--green);}
+
+/* RESULT PANEL */
+.res-panel{background:var(--card);border:1px solid var(--border);border-radius:11px;overflow:hidden;display:none;margin-bottom:16px;}
+.res-panel.show{display:block;}
+.res-head{background:var(--panel);border-bottom:1px solid var(--border);padding:13px 16px;display:flex;align-items:center;gap:12px;flex-wrap:wrap;}
+.res-model{font-family:var(--mono);font-size:17px;font-weight:600;color:var(--teal);}
+.res-body{padding:16px;}
+.res-grid{display:grid;grid-template-columns:1fr 1fr;gap:13px;margin-bottom:14px;}
+.rf-label{font-size:9px;font-weight:600;letter-spacing:.09em;text-transform:uppercase;color:var(--muted);margin-bottom:3px;}
+.rf-val{font-size:13px;}
+.rf-val a{color:var(--teal);text-decoration:none;}
+.rf-val a:hover{text-decoration:underline;}
+
+/* TRANSFER */
+.loc-chip{display:inline-flex;align-items:center;gap:5px;background:var(--panel);border:1px solid var(--border);border-radius:6px;padding:4px 10px;font-size:11px;font-weight:500;}
+
+/* TOAST */
+.toast{position:fixed;bottom:22px;left:50%;transform:translateX(-50%) translateY(80px);background:var(--panel);border:1px solid var(--teal);color:var(--teal);border-radius:7px;padding:9px 18px;font-size:12px;font-weight:500;transition:transform .3s;z-index:999;white-space:nowrap;pointer-events:none;}
+.toast.show{transform:translateX(-50%) translateY(0);}
+
+/* CAMERA */
+#cam-modal{display:none;position:fixed;inset:0;background:rgba(0,0,0,.85);z-index:200;align-items:center;justify-content:center;}
+#cam-modal.open{display:flex;}
+.cam-inner{background:var(--panel);border:1px solid var(--border);border-radius:13px;padding:18px;width:95%;max-width:440px;}
+#cam-video{width:100%;border-radius:8px;background:#000;display:block;}
+
+/* JOB BANNER */
+.job-banner{background:rgba(0,201,177,.06);border:1px solid rgba(0,201,177,.2);border-radius:10px;padding:13px 15px;margin-bottom:14px;}
+.jb-title{font-size:13px;font-weight:600;color:var(--teal);margin-bottom:4px;display:flex;align-items:center;gap:7px;}
+.jb-sub{font-size:11px;color:var(--muted);margin-bottom:10px;}
+
+/* SETTINGS */
+.settings-section{margin-bottom:24px;}
+.settings-section h3{font-family:var(--cond);font-size:16px;font-weight:600;margin-bottom:4px;color:var(--text);}
+.settings-section .desc{font-size:11px;color:var(--muted);margin-bottom:12px;}
+.stock-item{display:flex;align-items:center;gap:10px;padding:8px 0;border-bottom:1px solid var(--border);}
+.stock-item:last-child{border-bottom:none;}
+.stock-item input[type=text]{font-family:var(--mono);font-size:12px;}
+.stock-item input[type=number]{width:70px;text-align:center;}
+
+/* VENDOR CHAIN */
+.vchain{display:flex;flex-direction:column;gap:4px;}
+.vc-item{display:flex;align-items:center;gap:8px;padding:7px 10px;background:var(--panel);border:1px solid var(--border);border-radius:6px;font-size:12px;}
+.vc-num{font-family:var(--mono);font-size:10px;color:var(--muted);width:18px;}
+.vc-eta{margin-left:auto;font-size:10px;color:var(--muted);}
+
+/* INLINE EDIT */
+.edit-row{display:none;background:var(--panel);border-top:1px solid var(--border);padding:12px 14px;}
+.edit-row.open{display:block;}
+.edit-grid{display:grid;grid-template-columns:repeat(auto-fill,minmax(140px,1fr));gap:8px;margin-bottom:10px;}
+.edit-grid label{font-size:10px;font-weight:600;letter-spacing:.08em;text-transform:uppercase;color:var(--muted);display:block;margin-bottom:3px;}
+.edit-grid input,.edit-grid select{font-size:12px;padding:7px 9px;width:100%;}
+.edit-actions{display:flex;gap:7px;}
+
+
+/* PWA INSTALL BANNER */
+#pwa-install-bar{
+  display:none;
+  position:fixed;bottom:0;left:0;right:0;
+  background:var(--panel);border-top:1px solid var(--teal);
+  padding:12px 16px;z-index:999;
+  align-items:center;gap:12px;
+  box-shadow:0 -4px 20px rgba(0,0,0,.4);
+}
+#pwa-install-bar.show{display:flex;}
+#pwa-install-bar .pwa-icon{
+  width:42px;height:42px;border-radius:10px;
+  background:var(--teal);color:var(--bg);
+  font-family:var(--cond);font-weight:700;font-size:16px;
+  display:flex;align-items:center;justify-content:center;
+  flex-shrink:0;
+}
+#pwa-install-bar .pwa-text{flex:1;}
+#pwa-install-bar .pwa-title{font-size:13px;font-weight:600;color:var(--text);}
+#pwa-install-bar .pwa-sub{font-size:11px;color:var(--muted);margin-top:1px;}
+
+
+/* ── KNOWLEDGE BASE ── */
+.kb-category{
+  background:var(--card);border:1px solid var(--border);
+  border-radius:11px;overflow:hidden;margin-bottom:12px;
+}
+.kb-cat-header{
+  padding:14px 16px;display:flex;align-items:center;
+  justify-content:space-between;cursor:pointer;
+  transition:background .15s;user-select:none;
+}
+.kb-cat-header:hover{background:rgba(0,201,177,.04);}
+.kb-cat-title{font-family:var(--cond);font-size:17px;font-weight:600;letter-spacing:.03em;}
+.kb-cat-sub{font-size:11px;color:var(--muted);margin-top:2px;}
+.kb-chevron{font-size:14px;color:var(--muted);transition:transform .2s;flex-shrink:0;}
+.kb-chevron.closed{transform:rotate(-90deg);}
+.kb-cat-body{border-top:1px solid var(--border);padding:12px;display:flex;flex-direction:column;gap:10px;}
+.kb-cat-body.collapsed{display:none;}
+
+.kb-article{
+  background:var(--panel);border:1px solid var(--border);
+  border-radius:9px;overflow:hidden;
+}
+.kb-article.kb-placeholder{opacity:.75;}
+.kb-article.kb-hidden{display:none;}
+
+.kb-article-header{
+  padding:12px 14px;display:flex;align-items:flex-start;
+  justify-content:space-between;gap:10px;flex-wrap:wrap;
+  border-bottom:1px solid var(--border);
+}
+.kb-article-title{font-size:13px;font-weight:600;color:var(--text);margin-bottom:5px;}
+.kb-article-meta{display:flex;gap:5px;flex-wrap:wrap;}
+.kb-tag{
+  display:inline-block;padding:1px 7px;border-radius:4px;
+  font-size:10px;font-weight:500;
+  background:rgba(0,201,177,.1);color:var(--teal);
+  font-family:var(--mono);
+}
+.kb-critical-badge{
+  font-size:10px;font-weight:600;padding:3px 9px;border-radius:6px;
+  background:rgba(245,166,35,.15);color:var(--amber);white-space:nowrap;flex-shrink:0;
+}
+.kb-placeholder-badge{
+  font-size:10px;font-weight:600;padding:3px 9px;border-radius:6px;
+  background:rgba(92,122,150,.15);color:var(--muted);white-space:nowrap;flex-shrink:0;
+}
+.kb-placeholder-body{
+  padding:12px 14px;font-size:12px;color:var(--muted);
+  font-style:italic;line-height:1.5;
+}
+
+.kb-contact-bar{
+  padding:10px 14px;background:rgba(0,201,177,.06);
+  border-bottom:1px solid var(--border);font-size:12px;color:var(--text);
+  display:flex;flex-wrap:wrap;gap:8px;align-items:center;
+}
+
+.kb-rules-grid{
+  padding:12px 14px;display:grid;
+  grid-template-columns:repeat(auto-fit,minmax(220px,1fr));gap:10px;
+  border-bottom:1px solid var(--border);
+}
+.kb-rule{border-radius:8px;padding:12px;}
+.kb-rule-warn{background:rgba(245,166,35,.08);border:1px solid rgba(245,166,35,.2);}
+.kb-rule-ok{background:rgba(46,204,113,.07);border:1px solid rgba(46,204,113,.2);}
+.kb-rule-red{background:rgba(232,69,90,.08);border:1px solid rgba(232,69,90,.2);}
+.kb-rule-label{
+  font-size:11px;font-weight:600;letter-spacing:.04em;
+  text-transform:uppercase;margin-bottom:6px;
+}
+.kb-rule-warn .kb-rule-label{color:var(--amber);}
+.kb-rule-ok .kb-rule-label{color:var(--green);}
+.kb-rule-red .kb-rule-label{color:var(--red);}
+.kb-rule-body{font-size:12px;line-height:1.55;color:var(--text);}
+
+.kb-callout{
+  margin:12px 14px;padding:12px 14px;
+  background:rgba(74,158,219,.08);border:1px solid rgba(74,158,219,.25);
+  border-radius:8px;border-left:3px solid var(--blue);
+  font-size:12px;line-height:1.6;color:var(--text);
+}
+.kb-callout-label{
+  font-size:10px;font-weight:600;letter-spacing:.08em;
+  text-transform:uppercase;color:var(--blue);margin-bottom:6px;
+}
+.kb-search-highlight{background:rgba(245,166,35,.3);border-radius:2px;padding:0 1px;}
+
+/* MOBILE */
+@media(max-width:768px){
+  #nav{transform:translateX(-100%);}
+  #nav.open{transform:translateX(0);}
+  #main{margin-left:0;}
+  #menu-btn{display:block;}
+  .g3,.g4{grid-template-columns:1fr 1fr;}
+  .g2{grid-template-columns:1fr;}
+  .res-grid{grid-template-columns:1fr;}
+  .content{padding:12px;}
+  #overlay{display:none;position:fixed;inset:0;background:rgba(0,0,0,.6);z-index:49;}
+  #overlay.show{display:block;}
+}
+@media(max-width:480px){
+  .g3,.g4,.g2{grid-template-columns:1fr;}
+}
+</style>
+<meta name="theme-color" content="#0D1B2A">
+<meta name="apple-mobile-web-app-capable" content="yes">
+<meta name="apple-mobile-web-app-status-bar-style" content="black-translucent">
+<meta name="apple-mobile-web-app-title" content="CA Hub">
+<meta name="mobile-web-app-capable" content="yes">
+<meta name="description" content="City Appliance Services — field operations hub for triage, parts, orders, and job logging.">
+<link rel="manifest" href="data:application/manifest+json;base64,eyJuYW1lIjoiQ2l0eSBBcHBsaWFuY2UgSHViIiwic2hvcnRfbmFtZSI6IkNBIEh1YiIsImRlc2NyaXB0aW9uIjoiQ2l0eSBBcHBsaWFuY2UgU2VydmljZXMgXHUyMDE0IGZpZWxkIG9wZXJhdGlvbnMgZm9yIHRyaWFnZSwgcGFydHMsIG9yZGVycywgYW5kIGpvYiBsb2dnaW5nIiwic3RhcnRfdXJsIjoiLi8iLCJzY29wZSI6Ii4vIiwiZGlzcGxheSI6InN0YW5kYWxvbmUiLCJvcmllbnRhdGlvbiI6ImFueSIsImJhY2tncm91bmRfY29sb3IiOiIjMEQxQjJBIiwidGhlbWVfY29sb3IiOiIjMEQxQjJBIiwiaWNvbnMiOlt7InNyYyI6ImRhdGE6aW1hZ2Uvc3ZnK3htbCwlM0NzdmcgeG1sbnM9J2h0dHA6Ly93d3cudzMub3JnLzIwMDAvc3ZnJyB2aWV3Qm94PScwIDAgMTkyIDE5MiclM0UlM0NyZWN0IHdpZHRoPScxOTInIGhlaWdodD0nMTkyJyByeD0nMzInIGZpbGw9JyUyMzBEMUIyQScvJTNFJTNDcmVjdCB4PScxMicgeT0nMTInIHdpZHRoPScxNjgnIGhlaWdodD0nMTY4JyByeD0nMjInIGZpbGw9J25vbmUnIHN0cm9rZT0nJTIzMDBDOUIxJyBzdHJva2Utd2lkdGg9JzEwJy8lM0UlM0N0ZXh0IHg9Jzk2JyB5PScxMTgnIGZvbnQtZmFtaWx5PSdBcmlhbCBCbGFjayxzYW5zLXNlcmlmJyBmb250LXdlaWdodD0nOTAwJyBmb250LXNpemU9Jzc2JyBmaWxsPSclMjMwMEM5QjEnIHRleHQtYW5jaG9yPSdtaWRkbGUnJTNFQ0ElM0MvdGV4dCUzRSUzQy9zdmclM0UiLCJzaXplcyI6IjE5MngxOTIiLCJ0eXBlIjoiaW1hZ2Uvc3ZnK3htbCIsInB1cnBvc2UiOiJhbnkgbWFza2FibGUifSx7InNyYyI6ImRhdGE6aW1hZ2Uvc3ZnK3htbCwlM0NzdmcgeG1sbnM9J2h0dHA6Ly93d3cudzMub3JnLzIwMDAvc3ZnJyB2aWV3Qm94PScwIDAgNTEyIDUxMiclM0UlM0NyZWN0IHdpZHRoPSc1MTInIGhlaWdodD0nNTEyJyByeD0nODAnIGZpbGw9JyUyMzBEMUIyQScvJTNFJTNDcmVjdCB4PScyOCcgeT0nMjgnIHdpZHRoPSc0NTYnIGhlaWdodD0nNDU2JyByeD0nNjAnIGZpbGw9J25vbmUnIHN0cm9rZT0nJTIzMDBDOUIxJyBzdHJva2Utd2lkdGg9JzI0Jy8lM0UlM0N0ZXh0IHg9JzI1NicgeT0nMzE4JyBmb250LWZhbWlseT0nQXJpYWwgQmxhY2ssc2Fucy1zZXJpZicgZm9udC13ZWlnaHQ9JzkwMCcgZm9udC1zaXplPScyMTAnIGZpbGw9JyUyMzAwQzlCMScgdGV4dC1hbmNob3I9J21pZGRsZSclM0VDQSUzQy90ZXh0JTNFJTNDL3N2ZyUzRSIsInNpemVzIjoiNTEyeDUxMiIsInR5cGUiOiJpbWFnZS9zdmcreG1sIiwicHVycG9zZSI6ImFueSBtYXNrYWJsZSJ9XSwiY2F0ZWdvcmllcyI6WyJidXNpbmVzcyIsInV0aWxpdGllcyJdLCJzaG9ydGN1dHMiOlt7Im5hbWUiOiJMb29rdXAgKyBUcmlhZ2UiLCJzaG9ydF9uYW1lIjoiVHJpYWdlIiwiZGVzY3JpcHRpb24iOiJMb29rIHVwIGEgbW9kZWwgYW5kIHN0YXJ0IHRyaWFnZSIsInVybCI6Ii4vI3RyaWFnZSJ9LHsibmFtZSI6Ik9yZGVyIExpc3QiLCJzaG9ydF9uYW1lIjoiT3JkZXJzIiwiZGVzY3JpcHRpb24iOiJWaWV3IHRvZGF5J3Mgb3JkZXIgbGlzdCIsInVybCI6Ii4vI29yZGVycyJ9XX0=">
+</head>
+<body>
+
+<!-- ══ LOGIN SCREEN ══ -->
+<div id="login-screen" style="display:none;position:fixed;inset:0;background:var(--bg);z-index:999;display:flex;align-items:center;justify-content:center;padding:20px;">
+  <div style="background:var(--panel);border:1px solid var(--border);border-radius:14px;padding:32px;width:100%;max-width:380px;">
+    <div style="text-align:center;margin-bottom:28px;">
+      <div style="font-family:var(--cond);font-size:32px;font-weight:700;color:var(--teal);letter-spacing:.04em;">⚡ CA HUB</div>
+      <div style="font-size:12px;color:var(--muted);margin-top:4px;letter-spacing:.08em;text-transform:uppercase;">City Appliance Services</div>
+    </div>
+    <div id="login-error" style="display:none;background:rgba(232,69,90,.1);border:1px solid rgba(232,69,90,.3);border-radius:8px;padding:10px 12px;font-size:12px;color:var(--red);margin-bottom:14px;"></div>
+    <div style="margin-bottom:12px;">
+      <label style="font-size:11px;font-weight:500;color:var(--muted);display:block;margin-bottom:4px;">Email</label>
+      <input type="email" id="login-email" placeholder="you@mycityappliance.com" style="font-size:13px;" onkeydown="if(event.key==='Enter')loginSubmit()">
+    </div>
+    <div style="margin-bottom:20px;">
+      <label style="font-size:11px;font-weight:500;color:var(--muted);display:block;margin-bottom:4px;">Password</label>
+      <input type="password" id="login-password" placeholder="••••••••" style="font-size:13px;" onkeydown="if(event.key==='Enter')loginSubmit()">
+    </div>
+    <button class="btn btn-p" style="width:100%;justify-content:center;padding:12px;" onclick="loginSubmit()" id="login-btn">Sign in</button>
+    <div style="text-align:center;margin-top:14px;">
+      <button onclick="showForgotPassword()" style="background:none;border:none;color:var(--muted);font-size:12px;cursor:pointer;text-decoration:underline;">Forgot password?</button>
+    </div>
+    <div id="offline-banner" style="display:none;margin-top:16px;background:rgba(245,166,35,.1);border:1px solid rgba(245,166,35,.3);border-radius:8px;padding:10px 12px;font-size:12px;color:var(--amber);text-align:center;">
+      No connection — working in offline mode
+    </div>
+  </div>
+</div>
+<div id="overlay" onclick="closeNav()"></div>
+
+<!-- NAV -->
+<nav id="nav">
+  <div class="nav-logo">
+    <div class="mark">⚡ CA HUB</div>
+    <div class="sub">City Appliance Services</div>
+  </div>
+  <div class="nav-group">Field</div>
+  <div class="nav-trace">
+    <button class="ni active" data-page="home"><div class="ni-dot"></div><span class="ni-icon">◉</span>Home</button>
+    <button class="ni" data-page="triage"><div class="ni-dot"></div><span class="ni-icon">🔍</span>Lookup + Triage</button>
+  </div>
+  <div class="nav-group">Parts</div>
+  <div class="nav-trace">
+    <button class="ni" data-page="scanner"><div class="ni-dot"></div><span class="ni-icon">📷</span>Parts Scanner</button>
+    <button class="ni" data-page="orders"><div class="ni-dot"></div><span class="ni-icon">📋</span>Order List<span class="ni-badge" id="badge-orders">0</span></button>
+    <button class="ni" data-page="inventory"><div class="ni-dot"></div><span class="ni-icon">📦</span>Inventory</button>
+    <button class="ni" data-page="returns"><div class="ni-dot"></div><span class="ni-icon">↩</span>Returns<span class="ni-badge warn" id="badge-returns" style="display:none">!</span></button>
+    <button class="ni" data-page="arrivals"><div class="ni-dot"></div><span class="ni-icon">🚚</span>Arrivals<span class="ni-badge" id="badge-arrivals" style="display:none;background:var(--red);">!</span></button>
+  </div>
+  <div class="nav-div"></div>
+  <div class="nav-group">Records</div>
+  <div class="nav-trace">
+    <button class="ni" data-page="joblog"><div class="ni-dot"></div><span class="ni-icon">📒</span>Job Log</button>
+    <button class="ni" data-page="kb"><div class="ni-dot"></div><span class="ni-icon">📚</span>Knowledge Base</button>
+  </div>
+  <div class="nav-div"></div>
+  <div class="nav-group">Admin</div>
+  <div class="nav-trace">
+    <button class="ni" data-page="settings"><div class="ni-dot"></div><span class="ni-icon">⚙</span>Settings</button>
+  </div>
+  <div class="nav-bot">
+  <div id="nav-user" style="font-size:11px;color:var(--teal);margin-bottom:6px;overflow:hidden;text-overflow:ellipsis;white-space:nowrap;"></div>
+  <button onclick="signOut()" style="background:none;border:1px solid var(--border);border-radius:6px;color:var(--muted);font-size:11px;padding:4px 10px;cursor:pointer;width:100%;">Sign out</button>
+  <div style="margin-top:6px;font-size:10px;color:var(--muted);">v2.0 · Supabase</div>
+</div>
+</nav>
+
+<!-- MAIN -->
+<div id="main">
+<div class="topbar">
+  <button id="menu-btn" onclick="toggleNav()">☰</button>
+  <div class="topbar-title" id="topbar-title">Home</div>
+  <div class="topbar-right" id="topbar-date"></div>
+  <div class="cutoff-chip" id="cutoff-chip">3:45 PM</div>
+</div>
+<div class="content">
+
+<!-- ══ HOME ══ -->
+<div class="page active" id="page-home">
+  <div class="pg-title" id="home-greeting">Good morning.</div>
+  <div class="pg-sub">What do you need today?</div>
+  <div class="g4" style="margin-bottom:18px;">
+    <div class="card" style="cursor:pointer;border-color:transparent;" onclick="navTo('triage')">
+      <div style="font-size:26px;margin-bottom:8px;">🔍</div>
+      <div style="font-size:14px;font-weight:600;margin-bottom:3px;">Look up a model</div>
+      <div style="font-size:11px;color:var(--muted);">Tech sheets, triage, parts</div>
+    </div>
+    <div class="card" style="cursor:pointer;border-color:transparent;" onclick="navTo('scanner')">
+      <div style="font-size:26px;margin-bottom:8px;">📷</div>
+      <div style="font-size:14px;font-weight:600;margin-bottom:3px;">Scan a part</div>
+      <div style="font-size:11px;color:var(--muted);">ID from photo → inventory</div>
+    </div>
+    <div class="card" style="cursor:pointer;border-color:transparent;" onclick="navTo('orders')">
+      <div style="font-size:26px;margin-bottom:8px;">📋</div>
+      <div style="font-size:14px;font-weight:600;margin-bottom:3px;">Order list</div>
+      <div style="font-size:11px;color:var(--muted)" id="home-orders-sub">— parts pending</div>
+    </div>
+    <div class="card" style="cursor:pointer;border-color:transparent;" onclick="navTo('joblog')">
+      <div style="font-size:26px;margin-bottom:8px;">📒</div>
+      <div style="font-size:14px;font-weight:600;margin-bottom:3px;">Log a job</div>
+      <div style="font-size:11px;color:var(--muted);">Auto-fills from triage</div>
+    </div>
+  </div>
+  <div id="home-alerts"></div>
+  <div class="g2">
+    <div class="card">
+      <div class="card-label" style="margin-bottom:10px;">Today's urgent orders</div>
+      <div id="home-daily-preview"><div style="font-size:12px;color:var(--muted);padding:8px 0;">Nothing on today's list.</div></div>
+      <button class="btn btn-g btn-sm" style="margin-top:10px;" onclick="navTo('orders')">View order list →</button>
+    </div>
+    <div class="card">
+      <div class="card-label" style="margin-bottom:10px;">Expiring returns</div>
+      <div id="home-returns-preview"><div style="font-size:12px;color:var(--muted);padding:8px 0;">No urgent returns.</div></div>
+      <button class="btn btn-g btn-sm" style="margin-top:10px;" onclick="navTo('returns')">View returns →</button>
+    </div>
+  </div>
+</div>
+
+<!-- ══ LOOKUP + TRIAGE ══ -->
+<div class="page" id="page-triage">
+  <div class="pg-title">Lookup + Triage</div>
+  <div class="pg-sub">Enter a model number. The AI finds docs, checks your inventory, and diagnoses the fault.</div>
+  <div class="card" style="margin-bottom:16px;">
+    <div class="frow">
+      <div class="fw"><input type="text" id="model-input" placeholder="Model # — e.g. GDM-23, VGIC5486GSS, SG14S…" style="font-family:var(--mono);font-size:14px;letter-spacing:.05em;"></div>
+      <div><select id="seg-select" style="width:auto;"><option value="commercial">Commercial</option><option value="res-pro">Residential Pro</option><option value="residential" selected>Residential</option></select></div>
+      <button class="btn btn-p" onclick="runLookup()">Look up</button>
+    </div>
+    <div class="lbar" id="lookup-bar"></div>
+    <div class="spin" id="lookup-spin">Searching manuals and checking inventory…</div>
+  </div>
+
+  <div class="res-panel" id="res-panel">
+    <div class="res-head">
+      <div>
+        <div class="res-model" id="res-model-val">—</div>
+        <div style="font-size:11px;color:var(--muted);" id="res-brand-val">—</div>
+      </div>
+      <span class="badge b-blue" id="res-type-val" style="margin-left:8px;">—</span>
+      <span class="badge b-muted" id="res-seg-val" style="margin-left:4px;">—</span>
+    </div>
+    <div class="res-body">
+      <div class="res-grid">
+        <div><div class="rf-label">Tech sheet / service manual</div><div class="rf-val" id="res-manual">—</div></div>
+        <div><div class="rf-label">Wiring diagram</div><div class="rf-val" id="res-wiring">—</div></div>
+        <div><div class="rf-label">Parts page</div><div class="rf-val" id="res-parts">—</div></div>
+        <div><div class="rf-label">Primary distributor</div><div class="rf-val" id="res-dist">—</div></div>
+      </div>
+      <div class="rf-label">Unit overview</div>
+      <div id="res-overview" style="font-size:12px;line-height:1.6;margin-bottom:12px;"></div>
+      <div class="rf-label">Common failures on this unit</div>
+      <div id="res-failures" style="font-size:12px;line-height:1.6;margin-bottom:14px;"></div>
+      <div id="res-stock-alert"></div>
+      <div class="arow">
+        <button class="btn btn-p btn-sm" onclick="focusChat()">🧠 Start triage chat</button>
+        <button class="btn btn-g btn-sm" onclick="showUpload()">⬆ Upload manual</button>
+      </div>
+    </div>
+  </div>
+
+  <div class="card" id="upload-sec" style="display:none;margin-bottom:16px;">
+    <div class="card-label" style="margin-bottom:8px;">Upload tech sheet or manual</div>
+    <div style="font-size:12px;color:var(--muted);margin-bottom:12px;">Couldn't find it online? Upload a PDF or photo and the AI will parse it.</div>
+    <div class="scan-box" onclick="document.getElementById('manual-file').click()" id="manual-drop">
+      <div style="font-size:28px;margin-bottom:8px;">📄</div>
+      <div style="font-size:13px;font-weight:600;margin-bottom:4px;">Tap to upload</div>
+      <div style="font-size:11px;color:var(--muted);">PDF or image</div>
+    </div>
+    <input type="file" id="manual-file" accept=".pdf,image/*" style="display:none" onchange="handleManual(this.files[0])">
+    <div class="lbar" id="manual-bar"></div>
+    <div id="manual-result" style="display:none;margin-top:10px;"></div>
+  </div>
+
+  <div class="card" id="triage-section" style="margin-bottom:16px;">
+    <div style="display:flex;align-items:center;gap:10px;margin-bottom:12px;flex-wrap:wrap;">
+      <div style="font-size:13px;font-weight:600;flex:1;">Triage chat</div>
+      <div class="fw" style="max-width:180px;"><input type="text" id="triage-model-display" placeholder="Model #" style="font-family:var(--mono);font-size:12px;" readonly></div>
+      <select id="triage-job-type" style="width:auto;">
+        <option>Commercial refrigeration</option><option>Commercial cooking</option>
+        <option>Commercial ice machine</option><option>Residential washer/dryer</option>
+        <option>Residential refrigerator</option><option>Residential range/oven</option>
+        <option>Pro residential (Viking/Thermador/Bertazzoni)</option>
+        <option>Dishwasher</option><option>Other</option>
+      </select>
+    </div>
+    <div class="chat-wrap">
+      <div class="chat-msgs" id="chat-msgs">
+        <div class="msg ai"><div class="mlbl">CA Tech AI</div>Ready. Give me a model number and symptom — or paste an error code, describe what you're seeing, or ask me to trace a circuit. I'll rank causes and tell you exactly what to test and what to order.</div>
+      </div>
+      <div class="chat-in">
+        <textarea id="chat-input" placeholder="Symptom, fault code, schematic question…" onkeydown="chatKey(event)"></textarea>
+        <button class="btn btn-p btn-sm" onclick="sendChat()" id="chat-btn">Send</button>
+      </div>
+    </div>
+    <div class="pill-row" id="part-pills"></div>
+    <div id="price-section" style="display:none;margin-top:14px;">
+      <div class="rf-label" style="margin-bottom:8px;">Pricing options (tech / manager reference only)</div>
+      <div class="price-opts" id="price-opts"></div>
+    </div>
+    <div class="arow">
+      <button class="btn btn-a btn-sm" onclick="extractParts()">📋 Extract parts to order list</button>
+      <button class="btn btn-g btn-sm" onclick="saveTriageToLog()">📒 Save to job log</button>
+      <button class="btn btn-m btn-sm" onclick="clearChat()">Clear</button>
+    </div>
+  </div>
+
+  <div class="job-banner" id="triage-save-banner" style="display:none;">
+    <div class="jb-title">💾 Triage ready to save</div>
+    <div class="jb-sub">Link to a job number and/or customer name to auto-save the diagnosis summary.</div>
+    <div class="frow">
+      <input type="text" id="save-job-num" placeholder="Job # (e.g. 2847)" style="width:130px;">
+      <input type="text" id="save-customer" placeholder="Customer name">
+      <button class="btn btn-p btn-sm" onclick="confirmSaveToLog()">Save to log</button>
+      <button class="btn btn-m btn-sm" onclick="dismissSaveBanner()">Dismiss</button>
+    </div>
+  </div>
+</div>
+
+<!-- ══ PARTS SCANNER ══ -->
+<div class="page" id="page-scanner">
+  <div class="pg-title">Parts Scanner</div>
+  <div class="pg-sub">Photograph a part label. The AI reads the part number and routes it to inventory or the order list.</div>
+  <div class="scan-box" id="scan-drop">
+    <div class="scan-frame">
+      <svg viewBox="0 0 140 96" fill="none">
+        <rect x="1" y="1" width="138" height="94" rx="6" stroke="#253D57" stroke-width="1.5" stroke-dasharray="5 4"/>
+        <path d="M1 22L1 5Q1 1 5 1L22 1" stroke="#00C9B1" stroke-width="2.5" stroke-linecap="round"/>
+        <path d="M139 22L139 5Q139 1 135 1L118 1" stroke="#00C9B1" stroke-width="2.5" stroke-linecap="round"/>
+        <path d="M1 74L1 91Q1 95 5 95L22 95" stroke="#00C9B1" stroke-width="2.5" stroke-linecap="round"/>
+        <path d="M139 74L139 91Q139 95 135 95L118 95" stroke="#00C9B1" stroke-width="2.5" stroke-linecap="round"/>
+      </svg>
+      <div class="scan-line"></div>
+    </div>
+    <div style="font-size:15px;font-weight:600;margin-bottom:6px;">Scan a part label</div>
+    <div style="font-size:12px;color:var(--muted);margin-bottom:14px;">Photo the sticker, rating plate, or OEM label</div>
+    <div style="display:flex;gap:9px;justify-content:center;flex-wrap:wrap;">
+      <button class="btn btn-p" onclick="document.getElementById('scan-file').click()">⬆ Upload photo</button>
+      <button class="btn btn-g" onclick="openCam()">📷 Camera</button>
+    </div>
+    <input type="file" id="scan-file" accept="image/*" style="display:none" onchange="handleScan(this.files[0])">
+  </div>
+  <div id="scan-preview-wrap" style="display:none;margin-bottom:14px;border-radius:9px;overflow:hidden;border:1px solid var(--border);position:relative;">
+    <img id="scan-preview" style="width:100%;max-height:240px;object-fit:contain;background:#080f18;display:block;">
+    <button onclick="clearScan()" style="position:absolute;top:7px;right:7px;background:rgba(0,0,0,.7);border:none;border-radius:50%;width:26px;height:26px;color:#fff;font-size:14px;cursor:pointer;">✕</button>
+  </div>
+  <div class="lbar" id="scan-bar"></div>
+  <div class="spin" id="scan-spin">Reading part label…</div>
+  <div class="card" id="scan-result" style="display:none;margin-bottom:14px;">
+    <div style="display:flex;justify-content:space-between;align-items:flex-start;flex-wrap:wrap;gap:10px;">
+      <div>
+        <div class="card-label">Part number</div>
+        <div style="font-family:var(--mono);font-size:22px;font-weight:600;color:var(--teal);" id="sr-num">—</div>
+        <div id="sr-conf" class="badge" style="margin-top:4px;"></div>
+      </div>
+      <div style="text-align:right;"><div class="rf-label">Distributor</div><div id="sr-dist" style="font-size:12px;"></div></div>
+    </div>
+    <div class="res-grid" style="margin-top:12px;">
+      <div><div class="rf-label">Description</div><div id="sr-desc" style="font-size:12px;"></div></div>
+      <div><div class="rf-label">Brand / fits</div><div id="sr-brand" style="font-size:12px;"></div></div>
+      <div><div class="rf-label">Category</div><div id="sr-cat" style="font-size:12px;"></div></div>
+    </div>
+    <div id="sr-notes" style="font-size:11px;color:var(--muted);margin-top:8px;padding:8px;background:var(--bg);border-radius:6px;"></div>
+    <div class="frow" style="margin-top:12px;">
+      <div class="fw"><label class="lbl">Override part #</label><input type="text" id="sr-ov-num" style="font-family:var(--mono);font-size:12px;"></div>
+      <div style="width:80px;"><label class="lbl">Qty</label><input type="number" id="sr-qty" value="1" min="0"></div>
+      <div class="fw"><label class="lbl">Location</label>
+        <select id="sr-loc"></select>
+      </div>
+    </div>
+    <div class="arow">
+      <button class="btn btn-p btn-sm" onclick="addToInvFromScan()">📦 Add to inventory</button>
+      <button class="btn btn-a btn-sm" onclick="addToOrderFromScan()">📋 Add to daily order</button>
+      <button class="btn btn-g btn-sm" onclick="clearScan()">Scan another</button>
+    </div>
+  </div>
+  <div id="cam-modal">
+    <div class="cam-inner">
+      <div style="font-size:15px;font-weight:600;margin-bottom:12px;">📷 Camera</div>
+      <video id="cam-video" autoplay playsinline></video>
+      <div style="display:flex;gap:9px;margin-top:12px;">
+        <button class="btn btn-p" style="flex:1;" onclick="captureCam()">Capture</button>
+        <button class="btn btn-g" onclick="closeCam()">Cancel</button>
+      </div>
+    </div>
+  </div>
+  <canvas id="cam-canvas" style="display:none;"></canvas>
+</div>
+
+<!-- ══ ORDER LIST ══ -->
+<div class="page" id="page-orders">
+  <div class="pg-title">Order List</div>
+  <div class="pg-sub">Daily urgent orders and the weekly stock reorder queue.</div>
+
+  <!-- Daily orders -->
+  <div style="display:flex;align-items:center;justify-content:space-between;flex-wrap:wrap;gap:10px;margin-bottom:10px;">
+    <div style="font-family:var(--cond);font-size:17px;font-weight:600;color:var(--coral);">Daily — Urgent Orders</div>
+    <div style="display:flex;gap:8px;flex-wrap:wrap;">
+      <button class="btn btn-coral btn-sm" onclick="openAddOrder('daily')">+ Add part</button>
+      <button class="btn btn-g btn-sm" onclick="exportOrders('daily')">⬇ Export</button>
+    </div>
+  </div>
+  <div id="daily-order-list" style="margin-bottom:20px;"></div>
+
+  <!-- Weekly orders -->
+  <div style="display:flex;align-items:center;justify-content:space-between;flex-wrap:wrap;gap:10px;margin-bottom:10px;">
+    <div style="font-family:var(--cond);font-size:17px;font-weight:600;color:var(--blue);">Weekly — Stock Reorder</div>
+    <div style="display:flex;gap:8px;flex-wrap:wrap;">
+      <button class="btn btn-m btn-sm" onclick="openAddOrder('weekly')">+ Add suggestion</button>
+      <button class="btn btn-p btn-sm" onclick="confirmWeekly()">✔ Manager confirm all</button>
+      <button class="btn btn-g btn-sm" onclick="exportOrders('weekly')">⬇ Export</button>
+    </div>
+  </div>
+  <div class="alert alert-blue" style="margin-bottom:10px;"><span class="alert-icon">ℹ</span><span>Weekly stock orders require manager confirmation before parts are ordered.</span></div>
+  <div id="weekly-order-list"></div>
+
+  <!-- Add order form -->
+  <div class="card" id="add-order-form" style="display:none;margin-top:16px;">
+    <div class="card-label" style="margin-bottom:10px;" id="add-order-title">Add part to order list</div>
+    <div class="frow">
+      <div class="fw"><label class="lbl">Part #</label><input type="text" id="ao-num" style="font-family:var(--mono);"></div>
+      <div class="fw"><label class="lbl">Description</label><input type="text" id="ao-desc"></div>
+      <div style="width:110px;"><label class="lbl">Job #</label><input type="text" id="ao-jobnum" placeholder="e.g. 2847"></div>
+    </div>
+    <div class="frow">
+      <div class="fw"><label class="lbl">Brand / unit</label><input type="text" id="ao-brand" placeholder="e.g. True GDM-23"></div>
+      <div style="width:70px;"><label class="lbl">Qty</label><input type="number" id="ao-qty" value="1" min="1"></div>
+      <div class="fw"><label class="lbl">Priority</label><select id="ao-pri"><option value="normal">Normal</option><option value="urgent">Urgent</option></select></div>
+    </div>
+
+    <div class="frow" style="margin-bottom:6px;">
+      <div class="fw"><label class="lbl">Fulfillment method</label>
+        <select id="ao-fulfillment" onchange="toggleFulfillmentFields()">
+          <option value="shipped">Shipped — carrier delivery</option>
+          <option value="pickup">SA pickup — Reliable San Antonio</option>
+          <option value="vanstock">Van stock — already on truck</option>
+        </select>
+      </div>
+      <div class="fw"><label class="lbl">Availability status</label>
+        <select id="ao-avail">
+          <option value="unknown">Unknown — check MPH</option>
+          <option value="instock">In stock at vendor</option>
+          <option value="available_sa">Available at SA branch</option>
+          <option value="network_pull">Network pull (ordered for SA)</option>
+          <option value="backordered">Backordered — no ETA</option>
+          <option value="backordered_eta">Backordered — ETA known</option>
+        </select>
+      </div>
+    </div>
+
+    <!-- Shipped fields -->
+    <div id="shipped-fields" class="frow">
+      <div class="fw"><label class="lbl">Distributor</label>
+        <select id="ao-dist"><option>Reliable — San Antonio</option><option>Reliable — Mesquite</option><option>PartsTown</option><option>Marcone</option><option>Encompass</option><option>APC</option><option>Other</option></select>
+      </div>
+      <div class="fw"><label class="lbl">Tech / job ref</label><input type="text" id="ao-tech"></div>
+    </div>
+
+    <!-- Pickup fields -->
+    <div id="pickup-fields" style="display:none;background:rgba(155,89,182,.08);border:1px solid rgba(155,89,182,.25);border-radius:8px;padding:12px;margin-bottom:12px;">
+      <div style="font-size:11px;font-weight:600;color:#9B59B6;margin-bottom:10px;">📍 SA pickup — Reliable Parts San Antonio</div>
+      <div class="frow" style="margin-bottom:0;">
+        <div class="fw"><label class="lbl">Pickup type</label>
+          <select id="ao-pickup-type">
+            <option value="shelf">On-shelf (available now)</option>
+            <option value="network">Network pull (ordered for pickup)</option>
+          </select>
+        </div>
+        <div class="fw"><label class="lbl">Target pickup run</label>
+          <select id="ao-pickup-run"></select>
+        </div>
+      </div>
+    </div>
+
+    <!-- Backorder fields -->
+    <div id="backorder-fields" style="display:none;background:rgba(232,69,90,.08);border:1px solid rgba(232,69,90,.25);border-radius:8px;padding:12px;margin-bottom:12px;">
+      <div style="font-size:11px;font-weight:600;color:var(--red);margin-bottom:8px;">⚠ Part is backordered — customer communication required</div>
+      <div class="frow" style="margin-bottom:8px;">
+        <div class="fw"><label class="lbl">Backorder ETA (if known)</label><input type="date" id="ao-backorder-eta"></div>
+      </div>
+      <div style="font-size:11px;color:var(--muted);background:var(--bg);border-radius:6px;padding:10px;">
+        <div style="font-weight:600;color:var(--text);margin-bottom:4px;">Customer talking point:</div>
+        "The part needed for your repair is currently on backorder with our supplier. We don't have a confirmed arrival date yet. Some customers prefer to wait — others choose not to move forward with the repair. Would you like us to hold your job and reach out the moment the part becomes available?"
+      </div>
+    </div>
+
+    <!-- Conflict banner -->
+    <div id="ao-conflict-banner" style="display:none;" class="alert alert-red" style="margin-bottom:10px;">
+      <span class="alert-icon">⚠</span>
+      <div id="ao-conflict-text"></div>
+    </div>
+
+    <div class="arow">
+      <button class="btn btn-p btn-sm" onclick="saveOrderItem()">Add to list</button>
+      <button class="btn btn-g btn-sm" onclick="openMPHSearch()" id="ao-mph-btn">🔍 Check availability (MPH)</button>
+      <button class="btn btn-m btn-sm" onclick="closeAddOrder()">Cancel</button>
+    </div>
+  </div>
+</div>
+
+<!-- ══ INVENTORY ══ -->
+<div class="page" id="page-inventory">
+  <div class="pg-title">Inventory</div>
+  <div class="pg-sub">Parts on hand across all locations. Scan to intake. Transfer between locations.</div>
+  <div class="g4" style="margin-bottom:16px;">
+    <div class="card"><div class="card-label">Total SKUs</div><div class="card-value" id="inv-total">0</div></div>
+    <div class="card"><div class="card-label">In stock</div><div class="card-value" style="color:var(--green);" id="inv-instock">0</div></div>
+    <div class="card"><div class="card-label">Out of stock</div><div class="card-value" style="color:var(--red);" id="inv-zero">0</div></div>
+    <div class="card"><div class="card-label">Total units</div><div class="card-value" id="inv-units">0</div></div>
+  </div>
+  <div class="frow" style="margin-bottom:14px;">
+    <input type="search" id="inv-search" placeholder="Search part #, description, brand…" oninput="renderInv()" style="max-width:320px;">
+    <select id="inv-loc-filter" onchange="renderInv()" style="width:auto;"><option value="">All locations</option></select>
+    <button class="btn btn-g btn-sm" onclick="toggleOOS()" id="oos-btn">🔴 Out of stock</button>
+    <button class="btn btn-g btn-sm" onclick="exportInvCSV()">⬇ Export</button>
+  </div>
+  <div id="inv-table"></div>
+</div>
+
+<!-- ══ RETURNS ══ -->
+<div class="page" id="page-returns">
+  <div class="pg-title">Returns Tracker</div>
+  <div class="pg-sub">Parts ordered but not used. 25-day return window from order date. Red = act today.</div>
+  <div id="returns-alerts" style="margin-bottom:12px;"></div>
+  <div id="returns-table"></div>
+</div>
+
+
+<!-- ══ ARRIVALS ══ -->
+<div class="page" id="page-arrivals">
+  <div class="pg-title">Arrivals — schedule ready</div>
+  <div class="pg-sub">Parts in transit and awaiting pickup. CSR uses this to book return visits.</div>
+
+  <div class="g4" style="margin-bottom:16px;">
+    <div class="card"><div class="card-label">Arriving today</div><div class="card-value" style="color:var(--green);" id="arr-today">0</div></div>
+    <div class="card"><div class="card-label">In transit</div><div class="card-value" style="color:var(--blue);" id="arr-transit">0</div></div>
+    <div class="card"><div class="card-label">Pickup run</div><div class="card-value" style="color:#9B59B6;" id="arr-pickup">0</div></div>
+    <div class="card"><div class="card-label">Conflicts</div><div class="card-value" style="color:var(--red);" id="arr-conflicts">0</div></div>
+  </div>
+
+  <div id="arrivals-conflict-section"></div>
+  <div id="arrivals-today-section"></div>
+  <div id="arrivals-transit-section"></div>
+  <div id="arrivals-pickup-section"></div>
+  <div id="arrivals-no-tracking-section"></div>
+</div>
+
+<!-- ══ KNOWLEDGE BASE ══ -->
+<div class="page" id="page-kb">
+  <div class="pg-title">Knowledge Base</div>
+  <div class="pg-sub">Searchable reference for CSRs, techs, and management. Fast answers during live calls and jobs.</div>
+
+  <!-- Search -->
+  <div style="position:relative;margin-bottom:20px;">
+    <input type="search" id="kb-search" placeholder="Search anything — vendor rules, SOPs, warranty, job forms…"
+      oninput="filterKB()" style="padding-left:38px;font-size:14px;">
+    <span style="position:absolute;left:12px;top:50%;transform:translateY(-50%);font-size:16px;pointer-events:none;">🔍</span>
+  </div>
+
+  <div id="kb-no-results" style="display:none;text-align:center;padding:32px;color:var(--muted);font-size:13px;">
+    No results found. Try different keywords.
+  </div>
+
+  <!-- ── CATEGORY: Parts & Shipping Rules ── -->
+  <div class="kb-category" id="kb-cat-shipping">
+    <div class="kb-cat-header" onclick="toggleKBCat('shipping')">
+      <div style="display:flex;align-items:center;gap:10px;">
+        <span style="font-size:18px;">📦</span>
+        <div>
+          <div class="kb-cat-title">Parts &amp; Shipping Rules</div>
+          <div class="kb-cat-sub">Vendor cutoffs, shipping methods, arrival estimates</div>
+        </div>
+      </div>
+      <span class="kb-chevron" id="kb-chev-shipping">▾</span>
+    </div>
+    <div class="kb-cat-body" id="kb-body-shipping">
+
+      <!-- Encompass -->
+      <div class="kb-article" data-tags="encompass shipping cutoff fedex 2nd day next day air weekend standard">
+        <div class="kb-article-header">
+          <div>
+            <div class="kb-article-title">Encompass Supply Chain Solutions — Shipping Rules</div>
+            <div class="kb-article-meta">
+              <span class="kb-tag">Encompass</span>
+              <span class="kb-tag">Shipping</span>
+              <span class="kb-tag">Cutoff</span>
+            </div>
+          </div>
+          <div class="kb-critical-badge">⏰ Time-sensitive</div>
+        </div>
+
+        <div class="kb-contact-bar">
+          <span>📞 <strong>(800) 432-8542</strong></span>
+          <span style="margin-left:16px;">⏱ Cutoff: <strong>2:00 PM Eastern / 1:00 PM Central</strong></span>
+        </div>
+
+        <div class="kb-rules-grid">
+          <div class="kb-rule kb-rule-warn">
+            <div class="kb-rule-label">Standard / Regular Shipping</div>
+            <div class="kb-rule-body">Does <strong>NOT</strong> ship same day — ever. Ships the following business day regardless of when the order is placed. Never use Standard if the tech needs the part for a next-day callback.</div>
+          </div>
+          <div class="kb-rule kb-rule-ok">
+            <div class="kb-rule-label">2nd Day Air or Next Day Air</div>
+            <div class="kb-rule-body">Ships same day <strong>only if ordered before 1:00 PM Central.</strong> After 1:00 PM Central — order sits until next business day even with expedited shipping selected.</div>
+          </div>
+          <div class="kb-rule kb-rule-red">
+            <div class="kb-rule-label">Weekend Orders</div>
+            <div class="kb-rule-body">FedEx treats Encompass as closed on weekends. Any order placed Friday after 1:00 PM Central, or Saturday/Sunday, <strong>ships Monday</strong> regardless of shipping method selected.</div>
+          </div>
+        </div>
+
+        <div class="kb-callout">
+          <div class="kb-callout-label">⚡ The rule that matters on a live call</div>
+          If a tech needs a part for a next-day callback, the order must be placed <strong>before 1:00 PM Central</strong> with <strong>2nd Day Air or Next Day Air</strong> selected. Standard shipping after 1:00 PM Central means the part will not move until the following business day at the earliest.
+        </div>
+      </div>
+
+      <!-- Reliable Parts placeholder -->
+      <div class="kb-article kb-placeholder" data-tags="reliable parts shipping san antonio mesquite cutoff">
+        <div class="kb-article-header">
+          <div>
+            <div class="kb-article-title">Reliable Parts — Shipping Rules</div>
+            <div class="kb-article-meta"><span class="kb-tag">Reliable Parts</span><span class="kb-tag">Shipping</span></div>
+          </div>
+          <div class="kb-placeholder-badge">📝 Content coming</div>
+        </div>
+        <div class="kb-placeholder-body">
+          Shipping rules for Reliable Parts San Antonio and Mesquite branches — cutoff times, arrival estimates, and queue position rules — to be added.
+        </div>
+      </div>
+
+      <!-- Marcone placeholder -->
+      <div class="kb-article kb-placeholder" data-tags="marcone shipping cutoff eta arrival">
+        <div class="kb-article-header">
+          <div>
+            <div class="kb-article-title">Marcone — Shipping Rules &amp; ETA Lookup</div>
+            <div class="kb-article-meta"><span class="kb-tag">Marcone</span><span class="kb-tag">Shipping</span></div>
+          </div>
+          <div class="kb-placeholder-badge">📝 Content coming</div>
+        </div>
+        <div class="kb-placeholder-body">
+          Marcone shipping rules and how to use their live ETA lookup on marcone.com — to be added.
+        </div>
+      </div>
+
+      <!-- PartsTown placeholder -->
+      <div class="kb-article kb-placeholder" data-tags="partstown shipping commercial cutoff">
+        <div class="kb-article-header">
+          <div>
+            <div class="kb-article-title">PartsTown — Shipping Rules</div>
+            <div class="kb-article-meta"><span class="kb-tag">PartsTown</span><span class="kb-tag">Commercial</span><span class="kb-tag">Shipping</span></div>
+          </div>
+          <div class="kb-placeholder-badge">📝 Content coming</div>
+        </div>
+        <div class="kb-placeholder-body">
+          PartsTown shipping rules for commercial foodservice parts — to be added.
+        </div>
+      </div>
+
+    </div>
+  </div>
+
+  <!-- ── CATEGORY: SOPs & Process Guides ── -->
+  <div class="kb-category" id="kb-cat-sops">
+    <div class="kb-cat-header" onclick="toggleKBCat('sops')">
+      <div style="display:flex;align-items:center;gap:10px;">
+        <span style="font-size:18px;">📋</span>
+        <div>
+          <div class="kb-cat-title">SOPs &amp; Process Guides</div>
+          <div class="kb-cat-sub">Step-by-step procedures for common operations</div>
+        </div>
+      </div>
+      <span class="kb-chevron" id="kb-chev-sops">▾</span>
+    </div>
+    <div class="kb-cat-body" id="kb-body-sops">
+      <div class="kb-article kb-placeholder" data-tags="sop process intake call booking dispatch">
+        <div class="kb-article-header">
+          <div>
+            <div class="kb-article-title">Inbound Call Intake — SOP</div>
+            <div class="kb-article-meta"><span class="kb-tag">CSR</span><span class="kb-tag">Intake</span><span class="kb-tag">SOP</span></div>
+          </div>
+          <div class="kb-placeholder-badge">📝 Content coming</div>
+        </div>
+        <div class="kb-placeholder-body">Step-by-step intake script and required fields for booking a new job — to be added.</div>
+      </div>
+      <div class="kb-article kb-placeholder" data-tags="sop dispatch scheduling tech parts">
+        <div class="kb-article-header">
+          <div>
+            <div class="kb-article-title">Dispatch &amp; Scheduling — SOP</div>
+            <div class="kb-article-meta"><span class="kb-tag">Dispatch</span><span class="kb-tag">Scheduling</span><span class="kb-tag">SOP</span></div>
+          </div>
+          <div class="kb-placeholder-badge">📝 Content coming</div>
+        </div>
+        <div class="kb-placeholder-body">How to assign techs, schedule return visits, and manage the daily dispatch — to be added.</div>
+      </div>
+      <div class="kb-article kb-placeholder" data-tags="sop parts order daily weekly cutoff">
+        <div class="kb-article-header">
+          <div>
+            <div class="kb-article-title">Daily Parts Order Process — SOP</div>
+            <div class="kb-article-meta"><span class="kb-tag">Parts</span><span class="kb-tag">Orders</span><span class="kb-tag">SOP</span></div>
+          </div>
+          <div class="kb-placeholder-badge">📝 Content coming</div>
+        </div>
+        <div class="kb-placeholder-body">How to review, consolidate, and place the daily parts order before the 3:45 PM cutoff — to be added.</div>
+      </div>
+    </div>
+  </div>
+
+  <!-- ── CATEGORY: Warranty Rules ── -->
+  <div class="kb-category" id="kb-cat-warranty">
+    <div class="kb-cat-header" onclick="toggleKBCat('warranty')">
+      <div style="display:flex;align-items:center;gap:10px;">
+        <span style="font-size:18px;">🛡</span>
+        <div>
+          <div class="kb-cat-title">Warranty Job Rules &amp; Requirements</div>
+          <div class="kb-cat-sub">Brand-specific authorization processes and documentation requirements</div>
+        </div>
+      </div>
+      <span class="kb-chevron" id="kb-chev-warranty">▾</span>
+    </div>
+    <div class="kb-cat-body" id="kb-body-warranty">
+      <div class="kb-article kb-placeholder" data-tags="warranty frigidaire authorization electrolux">
+        <div class="kb-article-header">
+          <div>
+            <div class="kb-article-title">Frigidaire / Electrolux — Warranty Authorization</div>
+            <div class="kb-article-meta"><span class="kb-tag">Frigidaire</span><span class="kb-tag">Warranty</span><span class="kb-tag">Authorization</span></div>
+          </div>
+          <div class="kb-placeholder-badge">📝 Content coming</div>
+        </div>
+        <div class="kb-placeholder-body">Frigidaire and Electrolux warranty job rules, authorization process, and required documentation — to be added.</div>
+      </div>
+      <div class="kb-article kb-placeholder" data-tags="warranty hisense authorization">
+        <div class="kb-article-header">
+          <div>
+            <div class="kb-article-title">Hisense — Warranty Authorization</div>
+            <div class="kb-article-meta"><span class="kb-tag">Hisense</span><span class="kb-tag">Warranty</span><span class="kb-tag">Authorization</span></div>
+          </div>
+          <div class="kb-placeholder-badge">📝 Content coming</div>
+        </div>
+        <div class="kb-placeholder-body">Hisense warranty job rules and authorization process — to be added.</div>
+      </div>
+      <div class="kb-article kb-placeholder" data-tags="warranty viking thermador bertazzoni pro residential authorization">
+        <div class="kb-article-header">
+          <div>
+            <div class="kb-article-title">Pro Residential Brands — Warranty Rules</div>
+            <div class="kb-article-meta"><span class="kb-tag">Viking</span><span class="kb-tag">Thermador</span><span class="kb-tag">Bertazzoni</span><span class="kb-tag">Warranty</span></div>
+          </div>
+          <div class="kb-placeholder-badge">📝 Content coming</div>
+        </div>
+        <div class="kb-placeholder-body">Warranty rules and authorization requirements for Viking, Thermador, Bertazzoni, and other pro residential brands — to be added.</div>
+      </div>
+    </div>
+  </div>
+
+  <!-- ── CATEGORY: Job Form Requirements ── -->
+  <div class="kb-category" id="kb-cat-jobforms">
+    <div class="kb-cat-header" onclick="toggleKBCat('jobforms')">
+      <div style="display:flex;align-items:center;gap:10px;">
+        <span style="font-size:18px;">📝</span>
+        <div>
+          <div class="kb-cat-title">Job Form Requirements — ServiceWorks</div>
+          <div class="kb-cat-sub">Required fields, common intake mistakes, and what gets missed</div>
+        </div>
+      </div>
+      <span class="kb-chevron" id="kb-chev-jobforms">▾</span>
+    </div>
+    <div class="kb-cat-body" id="kb-body-jobforms">
+      <div class="kb-article kb-placeholder" data-tags="serviceworks job form required fields intake missing">
+        <div class="kb-article-header">
+          <div>
+            <div class="kb-article-title">Required Fields — New Job Intake</div>
+            <div class="kb-article-meta"><span class="kb-tag">ServiceWorks</span><span class="kb-tag">Intake</span><span class="kb-tag">Required Fields</span></div>
+          </div>
+          <div class="kb-placeholder-badge">📝 Content coming</div>
+        </div>
+        <div class="kb-placeholder-body">Every required field for a new job in ServiceWorks, and what is frequently missed during intake — to be added.</div>
+      </div>
+      <div class="kb-article kb-placeholder" data-tags="serviceworks warranty job form fields authorization">
+        <div class="kb-article-header">
+          <div>
+            <div class="kb-article-title">Warranty Job — Additional Required Fields</div>
+            <div class="kb-article-meta"><span class="kb-tag">ServiceWorks</span><span class="kb-tag">Warranty</span><span class="kb-tag">Required Fields</span></div>
+          </div>
+          <div class="kb-placeholder-badge">📝 Content coming</div>
+        </div>
+        <div class="kb-placeholder-body">Additional fields required when logging a warranty job in ServiceWorks — authorization numbers, claim codes, and documentation — to be added.</div>
+      </div>
+    </div>
+  </div>
+
+</div>
+<!-- ══ JOB LOG ══ -->
+<div class="page" id="page-joblog">
+  <div class="pg-title">Job Log</div>
+  <div class="pg-sub">Every job recorded. Auto-saves from triage. CSR notes alongside AI diagnosis.</div>
+  <div id="triage-pending-banner"></div>
+  <div style="display:flex;gap:9px;margin-bottom:14px;flex-wrap:wrap;">
+    <button class="btn btn-p btn-sm" onclick="toggleJobForm()">+ Log job manually</button>
+    <button class="btn btn-g btn-sm" onclick="exportJobsCSV()">⬇ Export log (CSV)</button>
+  </div>
+  <div class="card" id="job-form" style="display:none;margin-bottom:14px;">
+    <div class="card-label" style="margin-bottom:10px;">New job entry</div>
+    <div class="frow">
+      <div class="fw"><label class="lbl">Date</label><input type="date" id="jl-date"></div>
+      <div class="fw"><label class="lbl">Tech</label><input type="text" id="jl-tech"></div>
+      <div class="fw"><label class="lbl">Job #</label><input type="text" id="jl-jobnum"></div>
+      <div class="fw"><label class="lbl">Customer</label><input type="text" id="jl-customer"></div>
+    </div>
+    <div class="frow">
+      <div class="fw"><label class="lbl">Type</label><select id="jl-type"><option>Residential</option><option>Commercial</option></select></div>
+      <div class="fw"><label class="lbl">Brand</label><input type="text" id="jl-brand"></div>
+      <div class="fw"><label class="lbl">Model #</label><input type="text" id="jl-model" style="font-family:var(--mono);"></div>
+      <div class="fw"><label class="lbl">Category</label><input type="text" id="jl-cat" placeholder="e.g. Reach-in cooler"></div>
+    </div>
+    <div class="frow">
+      <div style="flex:2;min-width:0;"><label class="lbl">Customer complaint</label><input type="text" id="jl-symptom"></div>
+      <div class="fw"><label class="lbl">Fault code</label><input type="text" id="jl-code"></div>
+    </div>
+    <div class="frow">
+      <div style="flex:2;min-width:0;"><label class="lbl">Diagnosis</label><input type="text" id="jl-diag"></div>
+      <div class="fw"><label class="lbl">First-trip fix?</label><select id="jl-ftf"><option value="yes">Yes</option><option value="no">No</option></select></div>
+    </div>
+    <div class="frow">
+      <div class="fw"><label class="lbl">Parts replaced (name + OEM #)</label><input type="text" id="jl-parts"></div>
+      <div class="fw"><label class="lbl">Source / cost</label><input type="text" id="jl-cost" placeholder="e.g. PartsTown $42"></div>
+    </div>
+    <div style="margin-bottom:10px;"><label class="lbl">Gotchas / notes (access tricks, common misdiags, watch-outs)</label><textarea id="jl-notes" rows="3" style="resize:vertical;"></textarea></div>
+    <div class="arow"><button class="btn btn-p btn-sm" onclick="saveJob()">Save job</button><button class="btn btn-m btn-sm" onclick="toggleJobForm()">Cancel</button></div>
+  </div>
+  <div id="job-log-list"></div>
+</div>
+
+<!-- ══ SETTINGS ══ -->
+<div class="page" id="page-settings">
+  <div class="pg-title">Settings</div>
+  <div class="pg-sub">Locations, stock list, reorder thresholds, pricing, and vendor chain.</div>
+
+  <div class="settings-section">
+    <h3>Locations</h3>
+    <div class="desc">Trucks, vans, and storage locations tracked by inventory.</div>
+    <div id="loc-list" style="margin-bottom:10px;"></div>
+    <div class="frow">
+      <div class="fw"><input type="text" id="new-loc-name" placeholder="Location name (e.g. Van 2, Shop Shelf A)"></div>
+      <button class="btn btn-p btn-sm" onclick="addLocation()">Add location</button>
+    </div>
+  </div>
+
+  <div class="settings-section">
+    <h3>Stock parts list</h3>
+    <div class="desc">Parts always kept on hand. When qty drops below minimum, a reorder suggestion is generated for manager review.</div>
+    <div id="stock-list" style="margin-bottom:10px;"></div>
+    <button class="btn btn-p btn-sm" onclick="addStockItem()">+ Add part to stock list</button>
+  </div>
+
+  <div class="settings-section">
+    <h3>Labor rates</h3>
+    <div class="desc">Used to calculate job pricing options in triage. For tech and manager reference only — CSRs do not quote prices to customers.</div>
+    <div class="frow">
+      <div class="fw"><label class="lbl">Residential flat rate (labor)</label><input type="number" id="rate-res" placeholder="e.g. 150"></div>
+      <div class="fw"><label class="lbl">Commercial flat rate (labor)</label><input type="number" id="rate-comm" placeholder="e.g. 185"></div>
+      <div class="fw"><label class="lbl">Pro residential flat rate (labor)</label><input type="number" id="rate-pro" placeholder="e.g. 165"></div>
+    </div>
+    <div class="frow">
+      <div class="fw"><label class="lbl">Shipping/handling fee (all jobs)</label><input type="number" id="fee-ship" placeholder="15" value="15"></div>
+      <div class="fw"><label class="lbl">Same-day availability fee</label><input type="number" id="fee-sameday" placeholder="25" value="25"></div>
+    </div>
+    <button class="btn btn-p btn-sm" onclick="saveRates()">Save rates</button>
+  </div>
+
+  <div class="settings-section">
+    <h3>Vendor preference chain</h3>
+    <div class="desc">Current routing order. To change the chain, update the system prompt in your Claude Project. Marcone ETA comes from their parts page — direct techs to check marcone.com for live estimates.</div>
+    <div class="g2">
+      <div>
+        <div class="rf-label" style="margin-bottom:8px;">Residential pro + broad</div>
+        <div class="vchain">
+          <div class="vc-item"><span class="vc-num">1</span>Reliable — San Antonio<span class="vc-eta">Next day</span></div>
+          <div class="vc-item"><span class="vc-num">2</span>Reliable — Mesquite<span class="vc-eta">2 days</span></div>
+          <div class="vc-item"><span class="vc-num">3</span>Appliance Parts Co.<span class="vc-eta">Varies</span></div>
+          <div class="vc-item"><span class="vc-num">4</span>Marcone<span class="vc-eta">Check site</span></div>
+          <div class="vc-item"><span class="vc-num">5</span>Encompass / others<span class="vc-eta">Varies</span></div>
+        </div>
+      </div>
+      <div>
+        <div class="rf-label" style="margin-bottom:8px;">Commercial foodservice</div>
+        <div class="vchain">
+          <div class="vc-item"><span class="vc-num">1</span>PartsTown<span class="vc-eta">Check site</span></div>
+          <div class="vc-item"><span class="vc-num">2</span>Heritage Parts<span class="vc-eta">Varies</span></div>
+          <div class="vc-item"><span class="vc-num">3</span>Marcone<span class="vc-eta">Check site</span></div>
+          <div class="vc-item"><span class="vc-num">4</span>Manufacturer OEM<span class="vc-eta">Varies</span></div>
+        </div>
+      </div>
+    </div>
+  </div>
+
+  <div class="settings-section">
+    <h3>SA pickup run schedule</h3>
+    <div class="desc">Set the date of your next Reliable Parts San Antonio pickup run. The app calculates the following runs automatically (every other Thursday).</div>
+    <div class="frow">
+      <div class="fw"><label class="lbl">Next pickup run date</label><input type="date" id="next-pickup-date"></div>
+      <button class="btn btn-p btn-sm" onclick="savePickupDate()" style="align-self:flex-end;">Save</button>
+    </div>
+    <div id="pickup-schedule-preview" style="margin-top:10px;font-size:12px;color:var(--muted);"></div>
+  </div>
+
+  <div class="settings-section">
+    <h3>Data management</h3>
+    <div class="desc">Export your parts library log to upload into the Claude Project quarterly. Keeps the AI triage smarter over time.</div>
+    <div class="arow">
+      <button class="btn btn-g btn-sm" onclick="exportJobsCSV()">⬇ Export job log (CSV)</button>
+      <button class="btn btn-g btn-sm" onclick="exportInvCSV()">⬇ Export inventory (CSV)</button>
+      <button class="btn btn-r btn-sm" onclick="clearAllData()">⚠ Clear all local data</button>
+    </div>
+  </div>
+</div>
+
+</div><!-- /content -->
+</div><!-- /main -->
+<div class="toast" id="toast"></div>
+
+<script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2/dist/umd/supabase.js"></script>
+<script>
+
+// ═══════════════════════════════════════════════════════
+// SUPABASE CONFIG — EDIT THESE TWO LINES WITH YOUR VALUES
+// ═══════════════════════════════════════════════════════
+const SUPABASE_URL  = 'https://ioelvvblegevsgjbzvor.supabase.co';
+const SUPABASE_ANON = 'eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6ImlvZWx2dmJsZWdldnNnamJ6dm9yIiwicm9sZSI6ImFub24iLCJpYXQiOjE3ODE4OTU3NTYsImV4cCI6MjA5NzQ3MTc1Nn0.eyxlEsmdcxMpnt-_SAV0MIu9l8bKQwfDY93FVKQsrRY';
+
+// ── Supabase client (loaded via CDN below) ─────────────
+let sb = null;
+let currentUser = null;
+
+async function initSupabase(){
+  if(typeof window.supabase === 'undefined'){
+    console.error('Supabase client not loaded');
+    return false;
+  }
+  sb = window.supabase.createClient(SUPABASE_URL, SUPABASE_ANON, {
+    auth: { persistSession: true, autoRefreshToken: true }
+  });
+  const { data: { session } } = await sb.auth.getSession();
+  if(session) currentUser = session.user;
+  return true;
+}
+
+// ── Auth state listener ────────────────────────────────
+function setupAuthListener(){
+  sb.auth.onAuthStateChange((event, session) => {
+    currentUser = session?.user || null;
+    if(event === 'SIGNED_IN')  showApp();
+    if(event === 'SIGNED_OUT') showLogin();
+  });
+}
+
+
+// ═══════════════════════════════════════════════════════
+// STATE
+// ═══════════════════════════════════════════════════════
+const D = {
+  orders:    JSON.parse(localStorage.getItem('ca_sb_orders')    || localStorage.getItem('ca_orders')    || '[]'),
+  returns:   JSON.parse(localStorage.getItem('ca_sb_returns')   || localStorage.getItem('ca_returns')   || '[]'),
+  inventory: JSON.parse(localStorage.getItem('ca_sb_inventory') || localStorage.getItem('ca_inv')       || '[]'),
+  jobs:      JSON.parse(localStorage.getItem('ca_sb_jobs')      || localStorage.getItem('ca_jobs')      || '[]'),
+  locations: JSON.parse(localStorage.getItem('ca_setting_locations') || localStorage.getItem('ca_locs') || JSON.stringify(['Warehouse / Shop','Van 1'])),
+  stockList: JSON.parse(localStorage.getItem('ca_setting_stock_list') || localStorage.getItem('ca_stock') || JSON.stringify(defaultStock())),
+  rates:     JSON.parse(localStorage.getItem('ca_setting_rates') || localStorage.getItem('ca_rates')    || JSON.stringify({res:150,comm:185,pro:165,ship:15,sameday:25})),
+};
+function save(k){
+  // Always write to local cache immediately (fast UI)
+  localStorage.setItem('ca_sb_'+k, JSON.stringify(D[k]));
+  // Legacy key for backward compat
+  localStorage.setItem('ca_'+k, JSON.stringify(D[k]));
+}
+
+
+// ═══════════════════════════════════════════════════════
+// AUTH
+// ═══════════════════════════════════════════════════════
+async function loginSubmit(){
+  const email = document.getElementById('login-email').value.trim();
+  const password = document.getElementById('login-password').value;
+  const btn = document.getElementById('login-btn');
+  const err = document.getElementById('login-error');
+  if(!email||!password){ showLoginError('Enter your email and password.'); return; }
+  btn.disabled = true; btn.textContent = 'Signing in…';
+  const { error } = await sb.auth.signInWithPassword({ email, password });
+  if(error){
+    showLoginError(error.message);
+    btn.disabled = false; btn.textContent = 'Sign in';
+  }
+}
+
+function showLoginError(msg){
+  const el = document.getElementById('login-error');
+  el.textContent = msg; el.style.display = 'block';
+}
+
+async function showForgotPassword(){
+  const email = document.getElementById('login-email').value.trim();
+  if(!email){ showLoginError('Enter your email address first.'); return; }
+  const { error } = await sb.auth.resetPasswordForEmail(email);
+  if(!error) showLoginError('Password reset email sent — check your inbox.');
+  else showLoginError(error.message);
+}
+
+async function signOut(){
+  await sb.auth.signOut();
+  showLogin();
+}
+
+function showLogin(){
+  document.getElementById('login-screen').style.display = 'flex';
+  document.getElementById('nav').style.display = 'none';
+  document.getElementById('main').style.display = 'none';
+}
+
+function showApp(){
+  document.getElementById('login-screen').style.display = 'none';
+  document.getElementById('nav').style.display = 'flex';
+  document.getElementById('main').style.display = 'flex';
+  refreshHome();
+  updateBadges();
+  // Set up realtime subscriptions
+  setupRealtime();
+}
+
+// ═══════════════════════════════════════════════════════
+// SUPABASE DATA LAYER
+// Replaces localStorage with shared database.
+// Falls back to localStorage if offline.
+// ═══════════════════════════════════════════════════════
+
+let isOnline = navigator.onLine;
+window.addEventListener('online',  () => { isOnline = true;  syncFromServer(); hideOfflineBanner(); });
+window.addEventListener('offline', () => { isOnline = false; showOfflineBanner(); });
+
+function showOfflineBanner(){
+  const b = document.getElementById('offline-banner');
+  if(b) b.style.display = 'block';
+  showToast('Working offline — changes will sync when reconnected.');
+}
+function hideOfflineBanner(){
+  const b = document.getElementById('offline-banner');
+  if(b) b.style.display = 'none';
+  showToast('Back online — syncing…');
+}
+
+// ── Generic DB helpers ─────────────────────────────────
+async function dbSelect(table, filters){
+  if(!sb||!isOnline) return localGet(table);
+  try{
+    let q = sb.from(table).select('*');
+    if(filters) Object.entries(filters).forEach(([k,v]) => { q = q.eq(k,v); });
+    const { data, error } = await q.order('created_at', { ascending: false });
+    if(error) throw error;
+    localSet(table, data);
+    return data || [];
+  }catch(e){
+    console.warn('DB read failed, using local:', e.message);
+    return localGet(table);
+  }
+}
+
+async function dbInsert(table, row){
+  const rowWithUser = { ...row, user_id: currentUser?.id };
+  localAppend(table, rowWithUser);
+  if(!sb||!isOnline) return rowWithUser;
+  try{
+    const { data, error } = await sb.from(table).insert(rowWithUser).select().single();
+    if(error) throw error;
+    return data;
+  }catch(e){
+    console.warn('DB insert failed, queued locally:', e.message);
+    queueOfflineOp({ type:'insert', table, row: rowWithUser });
+    return rowWithUser;
+  }
+}
+
+async function dbUpdate(table, id, changes){
+  localUpdate(table, id, changes);
+  if(!sb||!isOnline){ queueOfflineOp({ type:'update', table, id, changes }); return; }
+  try{
+    const { error } = await sb.from(table).update(changes).eq('id', id);
+    if(error) throw error;
+  }catch(e){
+    console.warn('DB update failed, queued:', e.message);
+    queueOfflineOp({ type:'update', table, id, changes });
+  }
+}
+
+async function dbDelete(table, id){
+  localDelete(table, id);
+  if(!sb||!isOnline){ queueOfflineOp({ type:'delete', table, id }); return; }
+  try{
+    const { error } = await sb.from(table).delete().eq('id', id);
+    if(error) throw error;
+  }catch(e){
+    console.warn('DB delete failed, queued:', e.message);
+    queueOfflineOp({ type:'delete', table, id });
+  }
+}
+
+// ── Local cache (keeps app fast + enables offline) ─────
+function localGet(table){ return JSON.parse(localStorage.getItem('ca_sb_'+table) || '[]'); }
+function localSet(table, data){ localStorage.setItem('ca_sb_'+table, JSON.stringify(data)); }
+function localAppend(table, row){
+  const data = localGet(table);
+  data.unshift(row);
+  localSet(table, data);
+}
+function localUpdate(table, id, changes){
+  const data = localGet(table).map(r => r.id==id ? {...r,...changes} : r);
+  localSet(table, data);
+}
+function localDelete(table, id){
+  const data = localGet(table).filter(r => r.id != id);
+  localSet(table, data);
+}
+
+// ── Offline queue ──────────────────────────────────────
+let offlineQueue = JSON.parse(localStorage.getItem('ca_offline_queue') || '[]');
+function queueOfflineOp(op){ offlineQueue.push(op); localStorage.setItem('ca_offline_queue', JSON.stringify(offlineQueue)); }
+async function drainOfflineQueue(){
+  if(!sb||!isOnline||!offlineQueue.length) return;
+  const ops = [...offlineQueue]; offlineQueue = [];
+  localStorage.removeItem('ca_offline_queue');
+  for(const op of ops){
+    try{
+      if(op.type==='insert') await sb.from(op.table).insert(op.row);
+      if(op.type==='update') await sb.from(op.table).update(op.changes).eq('id', op.id);
+      if(op.type==='delete') await sb.from(op.table).delete().eq('id', op.id);
+    }catch(e){ console.warn('Queue drain failed for op:', op, e.message); }
+  }
+  showToast('Offline changes synced.');
+}
+
+async function syncFromServer(){
+  await drainOfflineQueue();
+  // Refresh active page data
+  const activePage = document.querySelector('.page.active')?.id?.replace('page-','');
+  if(activePage==='orders') await loadOrders();
+  if(activePage==='inventory') await loadInventory();
+  if(activePage==='returns') await loadReturns();
+  if(activePage==='joblog') await loadJobs();
+  if(activePage==='arrivals') renderArrivals();
+  refreshHome();
+}
+
+// ── Realtime subscriptions ─────────────────────────────
+function setupRealtime(){
+  if(!sb||!isOnline) return;
+  const tables = ['orders','inventory','job_log','returns'];
+  tables.forEach(table => {
+    sb.channel('realtime-'+table)
+      .on('postgres_changes', { event: '*', schema: 'public', table }, payload => {
+        handleRealtimeChange(table, payload);
+      })
+      .subscribe();
+  });
+}
+
+function handleRealtimeChange(table, payload){
+  const { eventType, new: newRow, old: oldRow } = payload;
+  const localTable = table === 'job_log' ? 'jobs' : table;
+  if(eventType==='INSERT') localAppend(localTable, newRow);
+  if(eventType==='UPDATE') localUpdate(localTable, newRow.id, newRow);
+  if(eventType==='DELETE') localDelete(localTable, oldRow.id);
+  // Refresh UI if relevant page is active
+  const active = document.querySelector('.page.active')?.id?.replace('page-','');
+  if(table==='orders'&&(active==='orders'||active==='arrivals')){renderOrders();renderArrivals();}
+  if(table==='inventory'&&active==='inventory') renderInv();
+  if(table==='returns'&&active==='returns') renderReturns();
+  if(table==='job_log'&&active==='joblog') renderJobLog();
+  updateBadges();
+}
+
+// ═══════════════════════════════════════════════════════
+// DATA LOAD FUNCTIONS (called on page nav)
+// ═══════════════════════════════════════════════════════
+async function loadOrders(){
+  D.orders = await dbSelect('orders');
+  renderOrders();
+  updateBadges();
+}
+async function loadInventory(){
+  D.inventory = await dbSelect('inventory');
+  renderInv();
+  populateLocFilters();
+}
+async function loadReturns(){
+  D.returns = await dbSelect('returns');
+  renderReturns();
+  updateBadges();
+}
+async function loadJobs(){
+  D.jobs = await dbSelect('job_log');
+  renderJobLog();
+}
+async function loadSettings(){
+  // Locations and stock list stored in a settings table as JSON
+  if(sb&&isOnline){
+    try{
+      const { data } = await sb.from('settings').select('*').eq('key','locations').single();
+      if(data) D.locations = data.value;
+      const { data: sd } = await sb.from('settings').select('*').eq('key','stock_list').single();
+      if(sd) D.stockList = sd.value;
+      const { data: rd } = await sb.from('settings').select('*').eq('key','rates').single();
+      if(rd) D.rates = rd.value;
+    }catch(e){ console.warn('Settings load failed:', e.message); }
+  }
+  renderSettings();
+}
+
+async function saveSetting(key, value){
+  localStorage.setItem('ca_setting_'+key, JSON.stringify(value));
+  if(!sb||!isOnline) return;
+  try{
+    await sb.from('settings').upsert({ key, value, updated_at: new Date().toISOString() }, { onConflict: 'key' });
+  }catch(e){ console.warn('Setting save failed:', e.message); }
+}
+
+
+// Table name mapping (D key → Supabase table name)
+const TABLE = {
+  orders: 'orders',
+  returns: 'returns',
+  inventory: 'inventory',
+  jobs: 'job_log',
+};
+
+function defaultStock(){
+  return [
+    {partNum:'',desc:'Evaporator fan motor (commercial)',brand:'True/Hoshizaki',minQty:2,cat:'Motor'},
+    {partNum:'',desc:'Door gasket (reach-in cooler)',brand:'Various',minQty:2,cat:'Door gasket'},
+    {partNum:'',desc:'Igniter (gas range)',brand:'Various',minQty:3,cat:'Igniter'},
+    {partNum:'',desc:'Capacitor (run cap — washer/dryer)',brand:'Various',minQty:2,cat:'Capacitor'},
+    {partNum:'',desc:'Heating element (dryer)',brand:'Whirlpool/GE',minQty:2,cat:'Heating element'},
+    {partNum:'',desc:'Lid switch (top-load washer)',brand:'Whirlpool',minQty:2,cat:'Sensor'},
+    {partNum:'',desc:'Thermal fuse (dryer)',brand:'Various',minQty:4,cat:'Sensor'},
+    {partNum:'',desc:'Control board (varies)',brand:'Various',minQty:1,cat:'Control board'},
+  ];
+}
+
+let showOOS=false, camStream=null;
+let currentScan=null, currentScanB64=null;
+let chatHistory=[], triageModel='', pendingTriageSummary=null;
+let currentJobFormOpen=false;
+
+// ═══════════════════════════════════════════════════════
+// NAV
+// ═══════════════════════════════════════════════════════
+function navTo(page){
+  document.querySelectorAll('.ni').forEach(n=>n.classList.remove('active'));
+  document.querySelectorAll('.page').forEach(p=>p.classList.remove('active'));
+  document.getElementById('page-'+page).classList.add('active');
+  const btn=document.querySelector(`.ni[data-page="${page}"]`);
+  if(btn) btn.classList.add('active');
+  const titles={home:'Home',triage:'Lookup + Triage',scanner:'Parts Scanner',orders:'Order List',inventory:'Inventory',returns:'Returns',arrivals:'Arrivals',joblog:'Job Log',kb:'Knowledge Base',settings:'Settings'};
+  document.getElementById('topbar-title').textContent=titles[page]||page;
+  closeNav();
+  if(page==='home') refreshHome();
+  if(page==='inventory'){renderInv();populateLocFilters();}
+  if(page==='orders') renderOrders();
+  if(page==='returns'){ loadReturns(); }
+  if(page==='arrivals'){ renderArrivals(); }
+  if(page==='joblog'){ loadJobs(); renderPendingBanner(); }
+  if(page==='settings'){ loadSettings(); }
+  if(page==='kb'){ renderKB(); }
+  if(page==='orders'){ loadOrders(); }
+  if(page==='inventory'){ loadInventory(); populateLocFilters(); }
+}
+document.querySelectorAll('.ni[data-page]').forEach(btn=>{
+  btn.addEventListener('click',()=>navTo(btn.dataset.page));
+});
+function toggleNav(){document.getElementById('nav').classList.toggle('open');document.getElementById('overlay').classList.toggle('show');}
+function closeNav(){document.getElementById('nav').classList.remove('open');document.getElementById('overlay').classList.remove('show');}
+
+// ═══════════════════════════════════════════════════════
+// CUTOFF CLOCK
+// ═══════════════════════════════════════════════════════
+function updateCutoff(){
+  const now=new Date();
+  const cut=new Date(); cut.setHours(15,45,0,0);
+  const chip=document.getElementById('cutoff-chip');
+  const diff=cut-now;
+  if(diff>0){
+    const h=Math.floor(diff/3600000),m=Math.floor((diff%3600000)/60000);
+    chip.textContent=`Order cutoff: ${h>0?h+'h ':''}${m}m`;
+    chip.className='cutoff-chip ok';
+  } else {
+    chip.textContent='Cutoff passed — next day';
+    chip.className='cutoff-chip';
+  }
+}
+setInterval(updateCutoff,60000); updateCutoff();
+
+// ═══════════════════════════════════════════════════════
+// AI API
+// ═══════════════════════════════════════════════════════
+async function callAI(messages,system,maxTokens=1800){
+  const r=await fetch('https://api.anthropic.com/v1/messages',{
+    method:'POST',headers:{'Content-Type':'application/json'},
+    body:JSON.stringify({model:'claude-sonnet-4-6',max_tokens:maxTokens,system,messages})
+  });
+  const d=await r.json();
+  return d.content?.find(b=>b.type==='text')?.text||'';
+}
+
+const TRIAGE_SYS=`You are the field operations AI for City Appliance Services LLC (San Marcos TX). Serve technicians and CSRs. Be technical and direct.
+
+PRIORITY: Before diagnosing, check if any common parts for this model/symptom appear in inventory context provided. If found, surface it immediately as a stock alert.
+
+SAFETY GATE — ABSOLUTE: Never instruct a tech to jump, bypass, or defeat any component unless the manufacturer's service manual explicitly documents that procedure. If documented, quote it exactly. If not, state: "This unit's manual does not document a jumper test here — use the documented test procedure instead."
+
+VENDOR ROUTING:
+- Residential pro (Viking/Thermador/Bertazzoni/Thor/Sub-Zero): Reliable SA (next day) → Reliable Mesquite (2 days) → APC → Marcone (check site for ETA) → Encompass
+- Residential broad (LG/Samsung/Whirlpool/GE/Bosch/Frigidaire): Reliable SA → Reliable Mesquite → Marcone → Encompass
+- Commercial (True/Hoshizaki/Vulcan/Garland/Pitco/Hobart/Rational/Manitowoc etc): PartsTown → Heritage → Marcone
+
+DIAGNOSIS FORMAT:
+1. IDENTIFY — brand, model, type, segment
+2. INVENTORY CHECK — flag any stock matches
+3. DOCS — link tech sheet, wiring diagram, parts page (real links only, never fabricate)
+4. DIAGNOSE — ranked causes, on-site tests, expected values from tech sheet, OEM part #s (label uncertain ones VERIFY)
+5. SCHEMATIC/WIRING TRACE — if asked: source → component, probe points, expected readings
+6. PARTS TO ORDER — one per line: [Part name] | [OEM # or VERIFY] | [Distributor]
+7. SAFETY — one line, gas/refrigerant/HV/capacitor flags
+
+PRICING (tech/manager reference only — CSRs never quote prices to customers):
+When parts are identified, generate pricing options:
+- Same-day (van stock): labor + part cost + $25 same-day fee + $15 shipping = total (fees baked in, not shown separately)
+- Next-day (Reliable SA): labor + part cost + $15 shipping = total
+- 2-3 day (Mesquite/Marcone): labor + part cost + $15 shipping = total
+Show which option has best margin. Use labor rates from context if provided.
+
+JOB LOG PROMPT: After triage, always end with: "SAVE PROMPT: Ready to save this session to the job log. Job # and customer name?"
+
+Response format: plain, scannable, sections in order, short lines, real links only, no preamble.`;
+
+// ═══════════════════════════════════════════════════════
+// LOOKUP
+// ═══════════════════════════════════════════════════════
+async function runLookup(){
+  const model=document.getElementById('model-input').value.trim();
+  if(!model){showToast('Enter a model number.');return;}
+  document.getElementById('lookup-bar').style.display='block';
+  document.getElementById('lookup-spin').style.display='block';
+  document.getElementById('res-panel').classList.remove('show');
+  triageModel=model;
+  document.getElementById('triage-model-display').value=model;
+
+  const invContext=D.inventory.length ? 'Current inventory: '+D.inventory.slice(0,20).map(p=>`${p.partNum} (${p.desc}) x${p.qty} @ ${p.loc}`).join('; ') : 'No inventory data yet.';
+  const sys=`You are a parts and service lookup assistant for City Appliance Services LLC. Return ONLY valid JSON, no markdown.
+Schema: {"model":"","brand":"","type":"appliance type","segment":"Commercial|Residential-Pro|Residential","tech_sheet_url":null,"wiring_url":null,"parts_url":null,"distributor":"primary source","overview":"2-3 sentences","common_failures":"bulleted list of 3-5 items","found":true}
+Never invent URLs. Distributor: PartsTown for commercial, Marcone/Encompass for residential-pro, Marcone/RepairClinic for residential.`;
+
+  try{
+    const raw=await callAI([{role:'user',content:`Model: ${model}\nSegment hint: ${document.getElementById('seg-select').value}\n${invContext}`}],sys,1000);
+    const j=JSON.parse(raw.replace(/```json|```/g,'').trim());
+    renderLookup(j,model);
+    checkInvForModel(model);
+  }catch(e){showToast('Lookup failed — check connection.');console.error(e);}
+  finally{document.getElementById('lookup-bar').style.display='none';document.getElementById('lookup-spin').style.display='none';}
+}
+
+function renderLookup(j,model){
+  document.getElementById('res-model-val').textContent=j.model||model;
+  document.getElementById('res-brand-val').textContent=j.brand||'Unknown';
+  document.getElementById('res-type-val').textContent=j.type||'—';
+  document.getElementById('res-seg-val').textContent=j.segment||'—';
+  document.getElementById('res-manual').innerHTML=j.tech_sheet_url?`<a href="${j.tech_sheet_url}" target="_blank">Open tech sheet ↗</a>`:'<span style="color:var(--muted)">Not found — upload below</span>';
+  document.getElementById('res-wiring').innerHTML=j.wiring_url?`<a href="${j.wiring_url}" target="_blank">Open wiring diagram ↗</a>`:'<span style="color:var(--muted)">Not found</span>';
+  document.getElementById('res-parts').innerHTML=j.parts_url?`<a href="${j.parts_url}" target="_blank">View parts ↗</a>`:'<span style="color:var(--muted)">Search manually</span>';
+  document.getElementById('res-dist').textContent=j.distributor||'—';
+  document.getElementById('res-overview').textContent=j.overview||'—';
+  document.getElementById('res-failures').innerHTML=(j.common_failures||'—').replace(/\n/g,'<br>');
+  document.getElementById('res-panel').classList.add('show');
+  if(!j.tech_sheet_url) document.getElementById('upload-sec').style.display='block';
+}
+
+function checkInvForModel(model){
+  const matches=D.inventory.filter(p=>p.brand&&model.toLowerCase().includes(p.brand.toLowerCase().split('/')[0])||p.desc.toLowerCase().includes('motor')||p.desc.toLowerCase().includes('fan'));
+  const div=document.getElementById('res-stock-alert');
+  if(matches.length){
+    div.innerHTML=matches.map(p=>`<div class="alert alert-teal"><span class="alert-icon">📦</span><span><strong>${p.partNum||p.desc}</strong> — ${p.qty} in stock at ${p.loc}. Check inventory before ordering.</span></div>`).join('');
+  } else {div.innerHTML='';}
+}
+
+function showUpload(){document.getElementById('upload-sec').style.display='block';document.getElementById('upload-sec').scrollIntoView({behavior:'smooth'});}
+function focusChat(){document.getElementById('chat-input').focus();document.getElementById('triage-section').scrollIntoView({behavior:'smooth'});}
+
+async function handleManual(file){
+  if(!file)return;
+  document.getElementById('manual-bar').style.display='block';
+  const b64=await f2b64(file);
+  const isImg=file.type.startsWith('image/');
+  const sys=`Parse this appliance service manual or tech sheet. Return ONLY JSON: {"brand":"","model":"","type":"","fault_codes":[{"code":"","meaning":""}],"common_failures":[],"key_specs":{"voltage":"","amps":"","refrigerant":""},"test_procedures":"key test steps","notes":""}`;
+  try{
+    const msgs=[{role:'user',content:[
+      isImg?{type:'image',source:{type:'base64',media_type:file.type,data:b64.split(',')[1]}}:{type:'document',source:{type:'base64',media_type:'application/pdf',data:b64.split(',')[1]}},
+      {type:'text',text:'Parse this manual and return the JSON.'}
+    ]}];
+    const raw=await callAI(msgs,sys,1200);
+    const j=JSON.parse(raw.replace(/```json|```/g,'').trim());
+    const div=document.getElementById('manual-result');
+    div.style.display='block';
+    div.innerHTML=`<div class="card"><div class="card-label" style="margin-bottom:6px;">Manual parsed ✔</div><span class="badge b-teal">${j.brand||'?'}</span> <span class="badge b-muted">${j.model||'?'}</span> <span class="badge b-blue">${j.type||'?'}</span>${j.fault_codes?.length?`<div style="margin-top:8px;font-size:11px;color:var(--muted);">${j.fault_codes.length} fault codes found</div>`:''}<div style="margin-top:8px;font-size:12px;line-height:1.5;">${j.test_procedures||''}</div><button class="btn btn-p btn-sm" style="margin-top:10px;" onclick='prefillChat(${JSON.stringify(j)})'>🧠 Send to triage</button></div>`;
+    showToast('Manual parsed.');
+  }catch(e){showToast('Parse failed — try a clearer image.');}
+  finally{document.getElementById('manual-bar').style.display='none';}
+}
+
+function prefillChat(j){
+  document.getElementById('chat-input').value=`I've uploaded the service manual for ${j.brand||''} ${j.model||''}. Key specs: ${JSON.stringify(j.key_specs||{})}. Test procedures: ${j.test_procedures||''}`;
+  focusChat();
+}
+
+// ═══════════════════════════════════════════════════════
+// TRIAGE CHAT
+// ═══════════════════════════════════════════════════════
+async function sendChat(){
+  const inp=document.getElementById('chat-input');
+  const msg=inp.value.trim(); if(!msg)return;
+  const model=document.getElementById('triage-model-display').value.trim();
+  const jtype=document.getElementById('triage-job-type').value;
+  const rates=D.rates;
+  const invCtx=D.inventory.slice(0,30).map(p=>`${p.partNum||p.desc} x${p.qty} @${p.loc}`).join('; ')||'No inventory data';
+  const rateCtx=`Labor rates: residential $${rates.res}, commercial $${rates.comm}, pro residential $${rates.pro}. Shipping fee $${rates.ship}. Same-day availability fee $${rates.sameday}.`;
+  const full=`${model?`[Model: ${model}] `:''}${jtype?`[Job type: ${jtype}] `:''}${rateCtx}\n[Inventory: ${invCtx}]\n${msg}`;
+
+  appendMsg('user',msg);
+  inp.value='';
+  document.getElementById('chat-btn').disabled=true;
+  chatHistory.push({role:'user',content:full});
+  const typing=appendMsg('ai','<span class="typing"><span></span><span></span><span></span></span>',true);
+
+  try{
+    const reply=await callAI(chatHistory,TRIAGE_SYS,1800);
+    typing.remove();
+    appendMsg('ai',reply);
+    chatHistory.push({role:'assistant',content:reply});
+    extractPartPills(reply);
+    extractPricingOptions(reply);
+    if(reply.includes('SAVE PROMPT:')||reply.includes('Parts TO ORDER:')||reply.includes('PARTS TO ORDER:')){
+      document.getElementById('triage-save-banner').style.display='block';
+      pendingTriageSummary={model,symptom:msg,aiSummary:reply,date:today()};
+    }
+  }catch(e){typing.remove();appendMsg('ai','Connection error — check your API access.');}
+  finally{document.getElementById('chat-btn').disabled=false;}
+}
+
+function appendMsg(role,content,raw=false){
+  const wrap=document.getElementById('chat-msgs');
+  const div=document.createElement('div');
+  div.className='msg '+role;
+  if(role==='ai'){const lbl=document.createElement('div');lbl.className='mlbl';lbl.textContent='CA Tech AI';div.appendChild(lbl);}
+  const body=document.createElement('div');
+  if(raw){body.innerHTML=content;}
+  else{body.innerHTML=content.replace(/\n/g,'<br>').replace(/\*\*(.*?)\*\*/g,'<strong>$1</strong>').replace(/`([^`]+)`/g,'<code>$1</code>');}
+  div.appendChild(body);
+  wrap.appendChild(div);
+  wrap.scrollTop=wrap.scrollHeight;
+  return div;
+}
+
+function chatKey(e){if(e.key==='Enter'&&!e.shiftKey){e.preventDefault();sendChat();}}
+function clearChat(){chatHistory=[];document.getElementById('chat-msgs').innerHTML='';appendMsg('ai','Chat cleared. Ready for the next job.');document.getElementById('part-pills').innerHTML='';document.getElementById('price-section').style.display='none';document.getElementById('triage-save-banner').style.display='none';}
+
+function extractPartPills(text){
+  const section=text.match(/PARTS TO ORDER:([\s\S]*?)(?=\n[A-Z\d]|\n\n\n|SAVE PROMPT|$)/i);
+  if(!section)return;
+  const lines=section[1].trim().split('\n').filter(l=>l.includes('|'));
+  const row=document.getElementById('part-pills');
+  row.innerHTML='';
+  lines.forEach(line=>{
+    const parts=line.split('|').map(s=>s.replace(/^[-*\s]+/,'').trim());
+    if(parts.length<2)return;
+    const num=parts[1]||'VERIFY';
+    const inStock=D.inventory.find(p=>p.partNum&&p.partNum.toLowerCase()===num.toLowerCase()&&p.qty>0);
+    const pill=document.createElement('div');
+    pill.className='pill '+(inStock?'pill-stock':'pill-order');
+    pill.innerHTML=inStock?`✔ ${num} — in stock ×${inStock.qty}`:`＋ ${num} — add to order`;
+    if(!inStock){
+      const mph=document.createElement('div');
+      mph.className='pill';
+      mph.style.cssText='background:rgba(74,158,219,.1);border:1px solid rgba(74,158,219,.3);color:var(--blue);cursor:pointer;';
+      mph.textContent=`🔍 Check availability`;
+      mph.onclick=()=>openMPHForPart(num);
+      row.appendChild(mph);
+    }
+    pill.onclick=()=>{
+      if(!inStock){
+        D.orders.push({id:Date.now(),partNum:num,desc:parts[0],brand:triageModel,qty:1,distributor:parts[2]||'',tech:'Triage AI',priority:'urgent',status:'pending',type:'daily',addedDate:today()});
+        save('orders');updateBadges();renderOrders();showToast(`${num} added to daily order list.`);
+      } else {showToast(`${num} already in stock at ${inStock.loc}.`);}
+    };
+    row.appendChild(pill);
+  });
+}
+
+function extractPricingOptions(text){
+  const hasPrice=text.match(/option [abc]|same.day|next.day|pricing/i);
+  if(!hasPrice)return;
+  const priceMatch=text.match(/\$[\d,]+/g);
+  if(!priceMatch||priceMatch.length<1)return;
+  const sec=document.getElementById('price-section');
+  const opts=document.getElementById('price-opts');
+  sec.style.display='block';
+  const prices=priceMatch.map(p=>parseInt(p.replace(/[$,]/g,'')));
+  const labels=[['Same-day','Part on truck — available today','best'],['Next-day','Order before 3:45pm CT',''],['2-3 Day','Ordered from alternate vendor','']];
+  opts.innerHTML=labels.slice(0,Math.min(prices.length,3)).map((l,i)=>`
+    <div class="price-opt ${l[2]}">
+      <div class="po-label">${l[0]}</div>
+      <div class="po-total">$${prices[i]||'—'}</div>
+      <div class="po-eta">${l[1]}</div>
+    </div>`).join('');
+}
+
+function extractParts(){
+  const lines=chatHistory.filter(m=>m.role==='assistant').map(m=>m.content).join('\n');
+  const section=lines.match(/PARTS TO ORDER:([\s\S]*?)(?=\n[A-Z]|\n\n\n|SAVE PROMPT|$)/i);
+  if(!section){showToast('No PARTS TO ORDER section found in chat.');return;}
+  const partLines=section[1].trim().split('\n').filter(l=>l.includes('|'));
+  let added=0;
+  partLines.forEach(line=>{
+    const parts=line.split('|').map(s=>s.replace(/^[-*\s]+/,'').trim());
+    if(parts.length>=2){
+      D.orders.push({id:Date.now()+Math.random(),partNum:parts[1]||'VERIFY',desc:parts[0],brand:triageModel,qty:1,distributor:parts[2]||'',tech:'Triage AI',priority:'urgent',status:'pending',type:'daily',addedDate:today()});
+      added++;
+    }
+  });
+  save('orders');updateBadges();showToast(`${added} part(s) added to daily order list.`);
+}
+
+function saveTriageToLog(){document.getElementById('triage-save-banner').style.display='block';}
+function dismissSaveBanner(){document.getElementById('triage-save-banner').style.display='none';}
+function confirmSaveToLog(){
+  const jobNum=document.getElementById('save-job-num').value.trim();
+  const customer=document.getElementById('save-customer').value.trim();
+  if(!pendingTriageSummary){showToast('No triage session to save.');return;}
+  const entry={
+    id:Date.now(),
+    date:today(),
+    tech:'',
+    jobNum,customer,
+    type:'',
+    brand:'',
+    model:pendingTriageSummary.model,
+    cat:'',
+    symptom:pendingTriageSummary.symptom,
+    code:'',
+    diag:'AI triage — see summary',
+    ftf:'',
+    parts:'',
+    cost:'',
+    notes:'',
+    aiSummary:pendingTriageSummary.aiSummary,
+    csrNotes:'',
+    fromTriage:true,
+  };
+  D.jobs.unshift(entry);
+  save('jobs');
+  dismissSaveBanner();
+  pendingTriageSummary=null;
+  showToast('Triage session saved to job log.');
+}
+
+// ═══════════════════════════════════════════════════════
+// PARTS SCANNER
+// ═══════════════════════════════════════════════════════
+async function handleScan(file){
+  if(!file)return;
+  const b64=await f2b64(file);
+  currentScanB64=b64.split(',')[1];
+  document.getElementById('scan-preview').src=b64;
+  document.getElementById('scan-preview-wrap').style.display='block';
+  document.getElementById('scan-bar').style.display='block';
+  document.getElementById('scan-spin').style.display='block';
+  document.getElementById('scan-result').style.display='none';
+  const sys=`You are a parts-ID assistant for City Appliance Services LLC. Read the label and return ONLY JSON: {"part_number":null,"confidence":"high|medium|low","description":"","brand":"","category":"Control board|Motor|Pump|Valve|Thermostat|Heating element|Sensor|Capacitor|Igniter|Door gasket|Relay|Wiring harness|Fan blade|Compressor|Other","distributor_hint":"","notes":"","raw_text":""}
+Distributor: PartsTown for commercial, Marcone/Encompass for residential-pro, Marcone for broad residential. Never invent a part number.`;
+  try{
+    const raw=await callAI([{role:'user',content:[{type:'image',source:{type:'base64',media_type:'image/jpeg',data:currentScanB64}},{type:'text',text:'Read this part label and return JSON.'}]}],sys,600);
+    const j=JSON.parse(raw.replace(/```json|```/g,'').trim());
+    currentScan=j;
+    renderScanResult(j);
+  }catch(e){showToast('Could not read label — try a clearer photo.');}
+  finally{document.getElementById('scan-bar').style.display='none';document.getElementById('scan-spin').style.display='none';}
+}
+
+function renderScanResult(r){
+  document.getElementById('sr-num').textContent=r.part_number||'Not found';
+  document.getElementById('sr-desc').textContent=r.description||'—';
+  document.getElementById('sr-brand').textContent=r.brand||'—';
+  document.getElementById('sr-cat').textContent=r.category||'—';
+  document.getElementById('sr-dist').textContent=r.distributor_hint||'—';
+  document.getElementById('sr-notes').textContent=r.notes||r.raw_text||'';
+  document.getElementById('sr-ov-num').value=r.part_number||'';
+  const badge=document.getElementById('sr-conf');
+  const m={high:['b-green','✔ High confidence'],medium:['b-amber','⚠ Medium — verify'],low:['b-red','⚠ Low — verify manually']};
+  const[cls,lbl]=m[r.confidence]||m.low;
+  badge.className='badge '+cls;badge.textContent=lbl;
+  populateLocSelect('sr-loc');
+  document.getElementById('scan-result').style.display='block';
+}
+
+function addToInvFromScan(){
+  const num=(document.getElementById('sr-ov-num').value||currentScan?.part_number||'').trim();
+  if(!num){showToast('No part number to save.');return;}
+  const loc=document.getElementById('sr-loc').value||D.locations[0]||'Unknown';
+  const existing=D.inventory.find(p=>p.partNum.toLowerCase()===num.toLowerCase()&&p.loc===loc);
+  const qty=parseInt(document.getElementById('sr-qty').value)||1;
+  if(existing){existing.qty+=qty;existing.lastUpdated=today();}
+  else{D.inventory.push({id:Date.now(),partNum:num,desc:currentScan?.description||'',brand:currentScan?.brand||'',cat:currentScan?.category||'',qty,loc,distributor:currentScan?.distributor_hint||'',addedDate:today(),lastUpdated:today()});}
+  dbInsert('inventory', D.inventory[0]);
+  save('inventory');clearScan();showToast(`${num} added to inventory at ${loc}.`);checkReorderTriggers();
+}
+
+function addToOrderFromScan(){
+  const num=(document.getElementById('sr-ov-num').value||currentScan?.part_number||'').trim();
+  if(!num){showToast('No part number.');return;}
+  D.orders.push({id:Date.now(),partNum:num,desc:currentScan?.description||'',brand:currentScan?.brand||'',qty:parseInt(document.getElementById('sr-qty').value)||1,distributor:currentScan?.distributor_hint||'',tech:'Scanner',priority:'normal',status:'pending',type:'daily',addedDate:today()});
+  save('orders');updateBadges();clearScan();showToast(`${num} added to daily order list.`);
+}
+
+function clearScan(){
+  document.getElementById('scan-preview-wrap').style.display='none';
+  document.getElementById('scan-result').style.display='none';
+  document.getElementById('scan-file').value='';
+  currentScan=null;currentScanB64=null;
+}
+
+function openCam(){
+  navigator.mediaDevices.getUserMedia({video:{facingMode:'environment'}})
+    .then(s=>{camStream=s;document.getElementById('cam-video').srcObject=s;document.getElementById('cam-modal').classList.add('open');})
+    .catch(()=>showToast('Camera unavailable — use Upload.'));
+}
+function closeCam(){if(camStream){camStream.getTracks().forEach(t=>t.stop());camStream=null;}document.getElementById('cam-modal').classList.remove('open');}
+function captureCam(){
+  const vid=document.getElementById('cam-video');
+  const canvas=document.getElementById('cam-canvas');
+  canvas.width=vid.videoWidth;canvas.height=vid.videoHeight;
+  canvas.getContext('2d').drawImage(vid,0,0);
+  const url=canvas.toDataURL('image/jpeg',.9);
+  closeCam();
+  document.getElementById('scan-preview').src=url;
+  document.getElementById('scan-preview-wrap').style.display='block';
+  currentScanB64=url.split(',')[1];
+  handleScan(dataURLtoFile(url,'capture.jpg'));
+}
+
+// ═══════════════════════════════════════════════════════
+// ORDER LIST
+// ═══════════════════════════════════════════════════════
+
+// ═══════════════════════════════════════════════════════
+// PICKUP RUN SCHEDULE
+// ═══════════════════════════════════════════════════════
+function getPickupRuns(fromDate, count){
+  count = count || 4;
+  var base = fromDate || localStorage.getItem('ca_next_pickup') || nextThursday();
+  var d = new Date(base + 'T12:00:00');
+  var runs = [];
+  for(var i = 0; i < count; i++){
+    runs.push(d.toISOString().slice(0,10));
+    d.setDate(d.getDate() + 14);
+  }
+  return runs;
+}
+
+function nextThursday(){
+  var d = new Date();
+  var dow = d.getDay();
+  var diff = (4 - dow + 7) % 7 || 7;
+  d.setDate(d.getDate() + diff);
+  return d.toISOString().slice(0,10);
+}
+
+function fmtDate(d){
+  if(!d) return '—';
+  return new Date(d + 'T12:00:00').toLocaleDateString('en-US',{weekday:'short',month:'short',day:'numeric'});
+}
+
+function savePickupDate(){
+  var val = document.getElementById('next-pickup-date').value;
+  if(!val){ showToast('Select a date first.'); return; }
+  localStorage.setItem('ca_next_pickup', val);
+  saveSetting('next_pickup', val);
+  renderPickupSchedulePreview();
+  showToast('Pickup schedule saved.');
+}
+
+function renderPickupSchedulePreview(){
+  var div = document.getElementById('pickup-schedule-preview');
+  if(!div) return;
+  var runs = getPickupRuns(null, 4);
+  div.innerHTML = 'Upcoming runs: ' + runs.map(fmtDate).join(' · ');
+}
+
+function populatePickupRunSelect(){
+  var sel = document.getElementById('ao-pickup-run');
+  if(!sel) return;
+  var runs = getPickupRuns(null, 4);
+  sel.innerHTML = runs.map(function(r, i){
+    return '<option value="' + r + '">' + (i===0 ? 'Next run — ' : '') + fmtDate(r) + '</option>';
+  }).join('') + '<option value="early">Early run (manager to confirm)</option>';
+}
+
+// ═══════════════════════════════════════════════════════
+// ORDER LIST — OPEN / CLOSE / SAVE
+// ═══════════════════════════════════════════════════════
+
+function openAddOrder(type){
+  addOrderType = type;
+  var titleEl = document.getElementById('add-order-title');
+  if(titleEl) titleEl.textContent = 'Add part to ' + type + ' order list';
+  var form = document.getElementById('add-order-form');
+  if(form) form.style.display = 'block';
+  toggleFulfillmentFields();
+  populatePickupRunSelect();
+  var avSel = document.getElementById('ao-avail');
+  if(avSel) avSel.onchange = toggleBackorderFields;
+  var jn = document.getElementById('ao-jobnum');
+  if(jn) jn.oninput = checkOrderConflict;
+  var pr = document.getElementById('ao-pickup-run');
+  if(pr) pr.onchange = checkOrderConflict;
+  if(form) form.scrollIntoView({behavior:'smooth', block:'nearest'});
+}
+
+function closeAddOrder(){
+  var form = document.getElementById('add-order-form');
+  if(form) form.style.display = 'none';
+}
+
+function saveOrderItem(){
+  var num = (document.getElementById('ao-num') || {}).value;
+  num = (num || '').trim();
+  if(!num){ showToast('Enter a part number.'); return; }
+  var fulfillment = (document.getElementById('ao-fulfillment') || {}).value || 'shipped';
+  var avail = (document.getElementById('ao-avail') || {}).value || 'unknown';
+  var pickupRun = fulfillment === 'pickup' ? ((document.getElementById('ao-pickup-run') || {}).value || null) : null;
+  var pickupType = fulfillment === 'pickup' ? ((document.getElementById('ao-pickup-type') || {}).value || null) : null;
+  var backorderETA = (document.getElementById('ao-backorder-eta') || {}).value || null;
+  var jobNum = ((document.getElementById('ao-jobnum') || {}).value || '').trim();
+  var dist = fulfillment === 'pickup' ? 'Reliable — San Antonio' : ((document.getElementById('ao-dist') || {}).value || '');
+  var order = {
+    id: Date.now(),
+    partNum: num,
+    desc: (document.getElementById('ao-desc') || {}).value || '',
+    brand: (document.getElementById('ao-brand') || {}).value || '',
+    qty: parseInt((document.getElementById('ao-qty') || {}).value) || 1,
+    distributor: dist,
+    tech: (document.getElementById('ao-tech') || {}).value || '',
+    priority: (document.getElementById('ao-pri') || {}).value || 'normal',
+    status: fulfillment === 'pickup' ? 'pickup_pending' : 'pending',
+    type: addOrderType,
+    addedDate: today(),
+    fulfillment: fulfillment,
+    availStatus: avail,
+    pickupRun: pickupRun,
+    pickupType: pickupType,
+    pickupConfirmed: false,
+    backorderETA: backorderETA,
+    jobNum: jobNum,
+    trackingNum: '',
+  };
+  D.orders.unshift(order);
+  dbInsert('orders', order);
+  if(fulfillment === 'shipped'){
+    const ret = {id:Date.now()+1,partNum:num,desc:order.desc,brand:order.brand,qty:order.qty,distributor:order.distributor,orderedDate:today(),status:'pending'};
+    D.returns.unshift(ret);
+    dbInsert('returns', ret);
+  }
+  save('orders');
+  updateBadges();
+  renderOrders();
+  closeAddOrder();
+  if(avail === 'backordered' || avail === 'backordered_eta'){
+    showToast('⚠ ' + num + ' is backordered — customer communication needed.');
+  } else {
+    showToast('Part added to order list.');
+  }
+  var clearIds = ['ao-num','ao-desc','ao-brand','ao-jobnum','ao-tech'];
+  clearIds.forEach(function(id){ var el=document.getElementById(id); if(el) el.value=''; });
+}
+
+// ═══════════════════════════════════════════════════════
+// ORDER ACTIONS
+// ═══════════════════════════════════════════════════════
+function markOrdered(id){
+  var p = D.orders.find(function(x){ return x.id == id; });
+  if(!p) return;
+  p.status = 'ordered';
+  p.orderedDate = today();
+  if(!D.returns.find(function(r){ return r.partNum===p.partNum && r.status==='pending'; })){
+    D.returns.push({id:Date.now(),partNum:p.partNum,desc:p.desc,brand:p.brand,qty:p.qty,distributor:p.distributor,orderedDate:today(),status:'pending'});
+  }
+  dbUpdate('orders', p.id, {status:'ordered', orderedDate:p.orderedDate});
+  dbInsert('returns', D.returns[D.returns.length-1]);
+  save('orders'); save('returns'); updateBadges(); renderOrders();
+  showToast(p.partNum + ' marked ordered. 25-day return window started.');
+}
+
+function markUsed(id){
+  var idx = D.orders.findIndex(function(x){ return x.id == id; });
+  if(idx < 0) return;
+  var p = D.orders[idx];
+  D.returns = D.returns.filter(function(r){ return !(r.partNum===p.partNum && r.orderedDate===p.orderedDate); });
+  D.orders.splice(idx, 1);
+  save('orders'); save('returns'); updateBadges(); renderOrders();
+  showToast(p.partNum + ' marked used — removed from returns.');
+}
+
+function markUnused(id){
+  var p = D.orders.find(function(x){ return x.id == id; });
+  if(!p) return;
+  if(!D.returns.find(function(r){ return r.partNum===p.partNum && r.status==='pending'; })){
+    D.returns.push({id:Date.now(),partNum:p.partNum,desc:p.desc,brand:p.brand,qty:p.qty,distributor:p.distributor,orderedDate:p.orderedDate||today(),status:'pending'});
+  }
+  D.orders = D.orders.filter(function(x){ return x.id != id; });
+  save('orders'); save('returns'); updateBadges(); renderOrders();
+  showToast(p.partNum + ' moved to Returns tracker.');
+}
+
+function deleteOrder(id){
+  D.orders = D.orders.filter(function(x){ return x.id != id; });
+  dbDelete('orders', id);
+  save('orders'); updateBadges(); renderOrders();
+  showToast('Part removed from order list.');
+}
+
+function confirmWeeklyItem(id){
+  var p = D.orders.find(function(x){ return x.id == id; });
+  if(!p) return;
+  p.confirmedByManager = true;
+  save('orders'); renderOrders();
+  showToast(p.partNum + ' confirmed by manager.');
+}
+
+function confirmWeekly(){
+  D.orders.filter(function(o){ return o.type==='weekly' && o.status==='pending'; })
+    .forEach(function(o){ o.confirmedByManager = true; });
+  save('orders'); renderOrders();
+  showToast('All weekly orders confirmed by manager.');
+}
+
+function exportOrders(type){
+  var items = D.orders.filter(function(o){ return o.type===type && o.status==='pending'; });
+  if(!items.length){ showToast('Nothing to export.'); return; }
+  var h = ['Part #','Description','Brand','Qty','Distributor','Job #','Tech','Priority','Availability','Added','ETA'];
+  var rows = items.map(function(p){
+    return [p.partNum,p.desc,p.brand,p.qty,p.distributor,p.jobNum,p.tech,p.priority,p.availStatus,p.addedDate,calcETA(p.distributor,p.addedDate)]
+      .map(function(v){ return '"'+(v||'').toString().replace(/"/g,'""')+'"'; });
+  });
+  var csvContent = [h].concat(rows).map(function(r){return r.join(',');}).join('\n');
+  dlFile('ca_'+type+'_order_'+today()+'.csv', csvContent, 'text/csv');
+  showToast('Order list exported.');
+}
+
+// ═══════════════════════════════════════════════════════
+// FULFILLMENT FIELD TOGGLING & CONFLICT DETECTION
+// ═══════════════════════════════════════════════════════
+function toggleFulfillmentFields(){
+  var val = (document.getElementById('ao-fulfillment') || {}).value || 'shipped';
+  var sf = document.getElementById('shipped-fields');
+  var pf = document.getElementById('pickup-fields');
+  if(sf) sf.style.display = val==='shipped' ? 'flex' : 'none';
+  if(pf) pf.style.display = val==='pickup' ? 'block' : 'none';
+  if(val==='pickup') populatePickupRunSelect();
+  checkOrderConflict();
+}
+
+function toggleBackorderFields(){
+  var avail = (document.getElementById('ao-avail') || {}).value || '';
+  var bf = document.getElementById('backorder-fields');
+  if(bf) bf.style.display = (avail==='backordered'||avail==='backordered_eta') ? 'block' : 'none';
+}
+
+function checkOrderConflict(){
+  var jobNum = ((document.getElementById('ao-jobnum') || {}).value || '').trim();
+  var fulfillment = (document.getElementById('ao-fulfillment') || {}).value || 'shipped';
+  var pickupRun = (document.getElementById('ao-pickup-run') || {}).value || '';
+  var banner = document.getElementById('ao-conflict-banner');
+  var txt = document.getElementById('ao-conflict-text');
+  if(!banner || !txt) return;
+  if(fulfillment!=='pickup' || !pickupRun || pickupRun==='early'){ banner.style.display='none'; return; }
+  var job = D.jobs.find(function(j){ return j.jobNum===jobNum; });
+  if(!job || !job.date){ banner.style.display='none'; return; }
+  var jobDate = new Date(job.date+'T12:00:00');
+  var pickupDate = new Date(pickupRun+'T12:00:00');
+  if(jobDate < pickupDate){
+    var diff = Math.round((pickupDate-jobDate)/86400000);
+    var cMsg = '<strong>Conflict &mdash; Job #' + jobNum + ' (' + (job.customer||'customer') + ') booked ' + fmtDate(job.date) + '</strong>';
+    cMsg += '<br>Next pickup: ' + fmtDate(pickupRun) + ' &mdash; ' + diff + ' day' + (diff!==1?'s':'') + ' after job.';
+    cMsg += '<div style="margin-top:8px;display:flex;gap:6px;flex-wrap:wrap;">';
+    cMsg += '<button class="btn btn-r btn-sm" onclick="flagConflictAction(1)">Call customer</button>';
+    cMsg += '<button class="btn btn-r btn-sm" onclick="flagConflictAction(2)">Early run</button>';
+    cMsg += '<button class="btn btn-r btn-sm" onclick="flagConflictAction(3)">Ship instead</button></div>';
+    txt.innerHTML = cMsg;
+  } else {
+    banner.style.display = 'none';
+  }
+}
+
+function openMPHSearch(){
+  var num = ((document.getElementById('ao-num') || {}).value || '').trim();
+  window.open(num ? 'https://appliancebluebook.com/mypartshelp/?q='+encodeURIComponent(num) : 'https://appliancebluebook.com/mypartshelp/', '_blank');
+}
+
+
+function renderOrders(){
+  renderOrderSection('daily','daily-order-list');
+  renderOrderSection('weekly','weekly-order-list');
+  updateBadges();
+}
+
+
+function buildEditPanel(p, type){
+  const distOpts = ['Reliable — San Antonio','Reliable — Mesquite','PartsTown','Marcone','Encompass','APC','Other']
+    .map(d => `<option${p.distributor===d?' selected':''}>${d}</option>`).join('');
+  const availOpts = [['unknown','Unknown'],['instock','In stock'],['available_sa','Available SA'],
+    ['network_pull','Network pull'],['backordered','Backordered'],['backordered_eta','Backorder w/ ETA']]
+    .map(([v,l]) => `<option value="${v}"${(p.availStatus||'unknown')===v?' selected':''}>${l}</option>`).join('');
+  const id = p.id;
+  return `
+  <div class="edit-row" id="edit-row-${id}">
+    <div class="edit-grid">
+      <div><label>Part #</label><input type="text" value="${escQ(p.partNum)}" onchange="updateOrderField(${id},'partNum',this.value)" style="font-family:var(--mono);"></div>
+      <div><label>Description</label><input type="text" value="${escQ(p.desc)}" onchange="updateOrderField(${id},'desc',this.value)"></div>
+      <div><label>Brand / unit</label><input type="text" value="${escQ(p.brand)}" onchange="updateOrderField(${id},'brand',this.value)"></div>
+      <div><label>Qty</label><input type="number" value="${p.qty||1}" min="1" onchange="updateOrderField(${id},'qty',parseInt(this.value)||1)"></div>
+      <div><label>Distributor</label><select id="dist-sel-${id}" onchange="updateOrderField(${id},'distributor',this.value)">${distOpts}</select></div>
+      <div><label>Job #</label><input type="text" value="${escQ(p.jobNum)}" onchange="updateOrderField(${id},'jobNum',this.value)"></div>
+      <div><label>Tech / ref</label><input type="text" value="${escQ(p.tech)}" onchange="updateOrderField(${id},'tech',this.value)"></div>
+      <div><label>Priority</label><select onchange="updateOrderField(${id},'priority',this.value)">
+        <option value="normal"${p.priority!=='urgent'?' selected':''}>Normal</option>
+        <option value="urgent"${p.priority==='urgent'?' selected':''}>Urgent</option>
+      </select></div>
+      <div><label>Availability</label><select id="avail-sel-${id}" onchange="updateOrderField(${id},'availStatus',this.value)">${availOpts}</select></div>
+      <div><label>Backorder ETA</label><input type="date" value="${p.backorderETA||''}" onchange="updateOrderField(${id},'backorderETA',this.value)"></div>
+      <div><label>Tracking #</label><input type="text" value="${escQ(p.trackingNum)}" onchange="updateOrderField(${id},'trackingNum',this.value)"></div>
+      <div><label>Fulfillment</label><select onchange="updateOrderField(${id},'fulfillment',this.value)">
+        <option value="shipped"${p.fulfillment!=='pickup'?' selected':''}>Shipped</option>
+        <option value="pickup"${p.fulfillment==='pickup'?' selected':''}>SA pickup</option>
+        <option value="vanstock"${p.fulfillment==='vanstock'?' selected':''}>Van stock</option>
+      </select></div>
+      ${type==='ordered'?`<div><label>Ordered date</label><input type="date" value="${p.orderedDate||''}" onchange="updateOrderField(${id},'orderedDate',this.value)"></div>`:''}
+    </div>
+    <div class="edit-actions">
+      <button class="btn btn-p btn-sm" onclick="saveEditRow(${id})">Save changes</button>
+      <button class="btn btn-m btn-sm" onclick="toggleEditRow(${id})">Cancel</button>
+    </div>
+  </div>`;
+}
+
+function renderOrderSection(type, containerId){
+  const items = D.orders.filter(o => o.type === type);
+  const div = document.getElementById(containerId);
+  if(!items.length){
+    div.innerHTML = `<div style="font-size:12px;color:var(--muted);padding:12px 0;">No ${type} orders yet.</div>`;
+    return;
+  }
+  const pending = items.filter(o => o.status==='pending' || o.status==='pickup_pending');
+  const ordered = items.filter(o => o.status==='ordered' || o.status==='pickup_confirmed');
+  let html = '';
+
+  if(pending.length){
+    html += `<div style="font-size:11px;color:var(--muted);margin-bottom:8px;font-weight:500;">Pending (${pending.length})</div>`;
+    pending.forEach(p => {
+      const eta = calcETA(p.distributor, p.addedDate);
+      const avBadge = p.availStatus && p.availStatus!=='unknown'
+        ? `<span class="badge b-amber" style="font-size:9px;">${p.availStatus.replace(/_/g,' ')}</span>` : '';
+      html += `
+      <div style="background:var(--card);border:1px solid var(--border);border-radius:9px;overflow:hidden;margin-bottom:8px;" id="order-row-${p.id}">
+        <div style="padding:10px 13px;display:flex;align-items:flex-start;justify-content:space-between;gap:10px;flex-wrap:wrap;">
+          <div style="display:flex;flex-wrap:wrap;gap:8px;align-items:center;flex:1;min-width:0;">
+            <span style="font-family:var(--mono);font-size:13px;font-weight:600;color:var(--teal);">${p.partNum||'—'}</span>
+            <span style="font-size:12px;">${p.desc||'—'}</span>
+            <span style="font-size:11px;color:var(--muted);">${p.brand||''}</span>
+            <span style="font-size:12px;">×${p.qty||1}</span>
+            <span style="font-size:11px;color:var(--muted);">${p.distributor||'—'}</span>
+            <span style="font-size:11px;color:var(--muted);">${eta}</span>
+            <span class="badge ${p.priority==='urgent'?'b-red':'b-muted'}">${p.priority||'normal'}</span>
+            ${avBadge}
+            ${p.jobNum ? `<span class="badge b-blue">Job #${p.jobNum}</span>` : ''}
+          </div>
+          <div style="display:flex;gap:5px;flex-wrap:wrap;flex-shrink:0;">
+            <button class="btn btn-g btn-sm" onclick="toggleEditRow(${p.id})">✏ Edit</button>
+            ${type==='weekly' ? `<button class="btn btn-p btn-sm" onclick="confirmWeeklyItem(${p.id})">Confirm</button>` : ''}
+            <button class="btn btn-coral btn-sm" onclick="markOrdered(${p.id})">Ordered</button>
+            <button class="btn btn-g btn-sm" onclick="markUnused(${p.id})">Not needed</button>
+            <button onclick="deleteOrder(${p.id})" style="background:none;border:none;color:var(--muted);cursor:pointer;font-size:16px;padding:2px;">🗑</button>
+          </div>
+        </div>
+        ${buildEditPanel(p, 'pending')}
+      </div>`;
+    });
+  }
+
+  if(ordered.length){
+    html += `<div style="font-size:11px;color:var(--muted);margin-top:4px;margin-bottom:8px;font-weight:500;">Ordered (${ordered.length})</div>`;
+    ordered.forEach(p => {
+      const days = Math.max(0, 25 - daysSince(p.orderedDate));
+      const eta = calcETA(p.distributor, p.orderedDate);
+      const dbc = days<=3?'b-red':days<=7?'b-amber':'b-muted';
+      html += `
+      <div style="background:var(--card);border:1px solid var(--border);border-radius:9px;overflow:hidden;margin-bottom:8px;" id="order-row-${p.id}">
+        <div style="padding:10px 13px;display:flex;align-items:center;justify-content:space-between;gap:10px;flex-wrap:wrap;">
+          <div style="display:flex;flex-wrap:wrap;gap:8px;align-items:center;flex:1;min-width:0;">
+            <span style="font-family:var(--mono);font-size:13px;font-weight:600;color:var(--teal);">${p.partNum||'—'}</span>
+            <span style="font-size:12px;">${p.desc||'—'} ${p.brand?'· '+p.brand:''}</span>
+            <span style="font-size:11px;color:var(--muted);">×${p.qty||1}</span>
+            <span style="font-size:11px;color:var(--muted);">${p.distributor||'—'}</span>
+            <span style="font-size:11px;color:var(--muted);">${p.orderedDate||'—'}</span>
+            <span style="font-size:11px;">${eta} <span class="badge ${dbc}">${days}d</span></span>
+            ${p.trackingNum ? `<a href="https://www.google.com/search?q=${encodeURIComponent(p.trackingNum)}" target="_blank" style="font-size:11px;color:var(--teal);text-decoration:none;">${p.trackingNum} ↗</a>` : ''}
+          </div>
+          <div style="display:flex;gap:5px;flex-wrap:wrap;flex-shrink:0;">
+            <button class="btn btn-g btn-sm" onclick="toggleEditRow(${p.id})">✏ Edit</button>
+            <button class="btn btn-p btn-sm" onclick="markUsed(${p.id})">Used ✔</button>
+            <button class="btn btn-g btn-sm" onclick="markUnused(${p.id})">Unused → return</button>
+          </div>
+        </div>
+        ${buildEditPanel(p, 'ordered')}
+      </div>`;
+    });
+  }
+  div.innerHTML = html;
+}
+
+function escQ(s){ return (s||'').toString().replace(/"/g,'&quot;').replace(/'/g,'&#39;'); }
+
+function toggleEditRow(id){
+  const row = document.getElementById('edit-row-'+id);
+  if(row) row.classList.toggle('open');
+}
+
+function updateOrderField(id, field, value){
+  const p = D.orders.find(x => x.id == id);
+  if(p) p[field] = value;
+}
+
+function saveEditRow(id){
+  const p = D.orders.find(x => x.id == id);
+  if(!p) return;
+  save('orders');
+  toggleEditRow(id);
+  renderOrders();
+  if(document.getElementById('page-arrivals').classList.contains('active')) renderArrivals();
+  showToast('Changes saved.');
+}
+
+
+function toggleFulfillmentFields(){
+  const val=document.getElementById('ao-fulfillment').value;
+  document.getElementById('shipped-fields').style.display=val==='shipped'?'flex':'none';
+  document.getElementById('pickup-fields').style.display=val==='pickup'?'block':'none';
+  if(val==='pickup') populatePickupRunSelect();
+  checkOrderConflict();
+}
+function toggleBackorderFields(){
+  const avail=document.getElementById('ao-avail').value;
+  const bf=document.getElementById('backorder-fields');
+  bf.style.display=(avail==='backordered'||avail==='backordered_eta')?'block':'none';
+}
+
+// ═══════════════════════════════════════════════════════
+// CONFLICT DETECTION
+// ═══════════════════════════════════════════════════════
+function checkOrderConflict(){
+  const jobNum=document.getElementById('ao-jobnum')?.value?.trim();
+  const fulfillment=document.getElementById('ao-fulfillment')?.value;
+  const pickupRun=document.getElementById('ao-pickup-run')?.value;
+  const banner=document.getElementById('ao-conflict-banner');
+  const txt=document.getElementById('ao-conflict-text');
+  if(!banner||!txt)return;
+
+  if(fulfillment!=='pickup'||!pickupRun||pickupRun==='early'){banner.style.display='none';return;}
+
+  const job=D.jobs.find(j=>j.jobNum===jobNum);
+  if(!job||!job.date){banner.style.display='none';return;}
+
+  const jobDate=new Date(job.date+'T12:00:00');
+  const pickupDate=new Date(pickupRun+'T12:00:00');
+
+  if(jobDate<pickupDate){
+    const diff=Math.round((pickupDate-jobDate)/(864e5));
+    txt.innerHTML=`<strong>Schedule conflict — Job #${jobNum} (${job.customer||'customer'}) is booked ${fmtDate(job.date)}</strong><br>Next pickup run is ${fmtDate(pickupRun)} — ${diff} day${diff!==1?'s':''} after the job.<div style="display:flex;gap:7px;flex-wrap:wrap;margin-top:8px;"><button class="btn btn-r btn-sm" onclick="flagConflictAction('reschedule','${jobNum}')">Call customer — reschedule</button><button class="btn btn-r btn-sm" onclick="flagConflictAction('early_run','${jobNum}')">Make run early</button><button class="btn btn-r btn-sm" onclick="document.getElementById('ao-fulfillment').value='shipped';toggleFulfillmentFields()">Switch to shipped</button></div>`;
+    banner.style.display='flex';
+  } else {
+    banner.style.display='none';
+  }
+}
+function flagConflictAction(action,jobNum){
+  if(action==='reschedule') showToast(`Flagged: call customer for job #${jobNum} to reschedule.`);
+  if(action==='early_run') showToast('Flagged: early pickup run needed — confirm with manager.');
+  document.getElementById('ao-conflict-banner').style.display='none';
+}
+
+// ═══════════════════════════════════════════════════════
+// MPH SEARCH LINK
+// ═══════════════════════════════════════════════════════
+function openMPHSearch(){
+  const num=document.getElementById('ao-num')?.value?.trim()||'';
+  const url=num?`https://appliancebluebook.com/mypartshelp/?q=${encodeURIComponent(num)}`:'https://appliancebluebook.com/mypartshelp/';
+  window.open(url,'_blank');
+}
+function openMPHForPart(partNum){
+  const url=partNum?`https://appliancebluebook.com/mypartshelp/?q=${encodeURIComponent(partNum)}`:'https://appliancebluebook.com/mypartshelp/';
+  window.open(url,'_blank');
+}
+
+// ═══════════════════════════════════════════════════════
+// ARRIVALS TAB
+// ═══════════════════════════════════════════════════════
+function renderArrivals(){
+  const ordered=D.orders.filter(o=>o.status==='ordered'||o.status==='pickup_confirmed'||o.status==='pickup_pending');
+  const today=today_str();
+
+  // Categorise
+  const conflicts=[];
+  const arriving_today=[];
+  const in_transit=[];
+  const pickup_parts=[];
+  const no_tracking=[];
+
+  ordered.forEach(o=>{
+    // conflict check
+    if(o.fulfillment==='pickup'&&o.pickupRun&&o.pickupRun!=='early'){
+      const job=D.jobs.find(j=>j.jobNum===o.jobNum);
+      if(job&&job.date&&new Date(job.date+'T12:00:00')<new Date(o.pickupRun+'T12:00:00')){
+        conflicts.push(o);return;
+      }
+    }
+    if(o.fulfillment==='pickup'){pickup_parts.push(o);return;}
+    if(!o.trackingNum){no_tracking.push(o);return;}
+    const eta=calcETADate(o.distributor,o.orderedDate);
+    if(eta===today){arriving_today.push(o);}
+    else{in_transit.push(o);}
+  });
+
+  // Update stat cards
+  document.getElementById('arr-today').textContent=arriving_today.length;
+  document.getElementById('arr-transit').textContent=in_transit.length;
+  document.getElementById('arr-pickup').textContent=pickup_parts.length;
+  document.getElementById('arr-conflicts').textContent=conflicts.length;
+
+  // Update badge
+  const ab=document.getElementById('badge-arrivals');
+  ab.style.display=conflicts.length?'inline-flex':'none';
+
+  renderArrivalSection('arrivals-conflict-section',conflicts,'conflict');
+  renderArrivalSection('arrivals-today-section',arriving_today,'today');
+  renderArrivalSection('arrivals-transit-section',in_transit,'transit');
+  renderArrivalSection('arrivals-pickup-section',pickup_parts,'pickup');
+  renderArrivalSection('arrivals-no-tracking-section',no_tracking,'notrack');
+}
+
+function renderArrivalSection(divId,items,type){
+  const div=document.getElementById(divId);
+  if(!items.length){div.innerHTML='';return;}
+
+  const labels={
+    conflict:'⚠ Conflict — needs attention',
+    today:'Arriving today',
+    transit:'In transit',
+    pickup:'SA pickup run',
+    notrack:'Awaiting tracking number'
+  };
+  const badges={
+    conflict:`<span class="badge b-red">${items.length} part${items.length!==1?'s':''}</span>`,
+    today:`<span class="badge b-green">${items.length}</span>`,
+    transit:`<span class="badge b-blue">${items.length}</span>`,
+    pickup:`<span class="badge" style="background:rgba(155,89,182,.15);color:#9B59B6;">${items.length}</span>`,
+    notrack:`<span class="badge b-amber">${items.length}</span>`
+  };
+
+  let html=`<div style="font-size:11px;font-weight:600;letter-spacing:.08em;text-transform:uppercase;color:var(--muted);margin-bottom:8px;padding-bottom:6px;border-bottom:1px solid var(--border);display:flex;justify-content:space-between;">${labels[type]}${badges[type]}</div>`;
+
+  items.forEach(o=>{
+    const job=D.jobs.find(j=>j.jobNum===o.jobNum);
+    const eta=o.fulfillment==='pickup'?fmtDate(o.pickupRun||''):(calcETA(o.distributor,o.orderedDate));
+    const borderColor=type==='conflict'?'var(--red)':type==='today'?'var(--green)':type==='pickup'?'#9B59B6':'var(--border)';
+    const availBadge=availBadgeHtml(o.availStatus);
+
+    html+=`<div style="background:var(--card);border:1px solid ${borderColor};border-radius:10px;overflow:hidden;margin-bottom:10px;">
+      <div style="padding:11px 14px;display:flex;align-items:flex-start;justify-content:space-between;gap:10px;flex-wrap:wrap;">
+        <div>
+          <div style="font-family:var(--mono);font-size:14px;font-weight:600;color:var(--teal);">${o.partNum}</div>
+          <div style="font-size:11px;color:var(--muted);margin-top:2px;">${o.desc||'—'} ${o.brand?'· '+o.brand:''}</div>
+        </div>
+        <div style="display:flex;gap:6px;flex-wrap:wrap;align-items:center;">
+          ${availBadge}
+          ${o.fulfillment==='pickup'?'<span class="badge" style="background:rgba(155,89,182,.15);color:#9B59B6;">SA pickup</span>':''}
+          ${type==='conflict'?'<span class="badge b-red">Conflict</span>':''}
+          ${type==='today'?'<span class="badge b-green">Arriving today</span>':''}
+        </div>
+      </div>
+      <div style="display:grid;grid-template-columns:1fr 1fr;gap:8px;padding:9px 14px;background:var(--panel);border-top:1px solid var(--border);">
+        <div><div style="font-size:9px;text-transform:uppercase;letter-spacing:.08em;color:var(--muted);margin-bottom:2px;">Job</div><div style="font-size:12px;">${o.jobNum?'#'+o.jobNum+(job&&job.customer?' — '+job.customer:''):job&&job.customer?job.customer:'Not linked'}</div></div>
+        <div><div style="font-size:9px;text-transform:uppercase;letter-spacing:.08em;color:var(--muted);margin-bottom:2px;">${o.fulfillment==='pickup'?'Pickup run':'Est. arrival'}</div><div style="font-size:12px;">${eta}</div></div>
+        ${type==='conflict'&&job?`<div><div style="font-size:9px;text-transform:uppercase;letter-spacing:.08em;color:var(--muted);margin-bottom:2px;">Job date</div><div style="font-size:12px;color:var(--red);">${fmtDate(job.date)} — before pickup</div></div>`:''}
+        <div><div style="font-size:9px;text-transform:uppercase;letter-spacing:.08em;color:var(--muted);margin-bottom:2px;">Distributor</div><div style="font-size:12px;">${o.distributor||'—'}</div></div>
+        ${o.trackingNum?`<div><div style="font-size:9px;text-transform:uppercase;letter-spacing:.08em;color:var(--muted);margin-bottom:2px;">Tracking</div><div style="font-size:12px;"><a href="https://www.google.com/search?q=${encodeURIComponent(o.trackingNum)}" target="_blank" style="color:var(--teal);text-decoration:none;">${o.trackingNum} ↗</a></div></div>`:''}
+      </div>
+      <div style="padding:8px 14px;border-top:1px solid var(--border);display:flex;gap:7px;flex-wrap:wrap;align-items:center;">
+        ${type==='conflict'?`
+          <button class="btn btn-r btn-sm" onclick="flagConflictResolution('${o.id}','reschedule')">Call customer — reschedule</button>
+          <button class="btn btn-r btn-sm" onclick="flagConflictResolution('${o.id}','early_run')">Make run early</button>
+          <button class="btn btn-g btn-sm" onclick="switchToShipped('${o.id}')">Switch to shipped</button>
+        `:''}
+        ${type==='today'?`
+          <button class="btn btn-p btn-sm" onclick="scheduleReturn('${o.id}')">📅 Schedule return visit</button>
+          <button class="btn btn-g btn-sm" onclick="markArrived('${o.id}')">Mark received</button>
+          <button class="btn btn-g btn-sm" onclick="moveToInvFromOrder('${o.id}')">Move to inventory</button>
+        `:''}
+        ${type==='transit'?`
+          <button class="btn btn-g btn-sm" onclick="markArrived('${o.id}')">Mark received</button>
+          ${!o.trackingNum?`<input type="text" placeholder="Paste tracking number…" onchange="saveTracking('${o.id}',this.value)" style="font-size:11px;padding:5px 10px;border:1px solid var(--border);border-radius:6px;background:var(--card);color:var(--text);width:200px;">`:''}
+        `:''}
+        ${type==='pickup'?`
+          <label style="display:flex;align-items:center;gap:6px;font-size:12px;cursor:pointer;">
+            <input type="checkbox" ${o.pickupConfirmed?'checked':''} onchange="confirmPickup('${o.id}',this.checked)" style="width:15px;height:15px;">
+            Confirmed for pickup run
+          </label>
+          <button class="btn btn-g btn-sm" onclick="scheduleReturn('${o.id}')">📅 Pre-schedule return</button>
+          <button class="btn btn-g btn-sm" onclick="markArrived('${o.id}')">Mark received</button>
+        `:''}
+        ${type==='notrack'?`
+          <input type="text" placeholder="Paste tracking number…" onchange="saveTracking('${o.id}',this.value)" style="font-size:11px;padding:5px 10px;border:1px solid var(--border);border-radius:6px;background:var(--card);color:var(--text);flex:1;min-width:160px;">
+          <button class="btn btn-g btn-sm" onclick="openMPHForPart('${o.partNum}')">Check availability ↗</button>
+        `:''}
+        <button class="btn btn-g btn-sm" onclick="openMPHForPart('${o.partNum}')">MPH ↗</button>
+      </div>
+    </div>`;
+  });
+
+  div.innerHTML=`<div style="margin-bottom:16px;">${html}</div>`;
+}
+
+function availBadgeHtml(status){
+  const map={
+    instock:['b-green','In stock'],
+    available_sa:['b-teal','Available SA'],
+    network_pull:['b-blue','Network pull'],
+    backordered:['b-red','Backordered'],
+    backordered_eta:['b-amber','Backorder — ETA known'],
+    unknown:['b-muted','Availability unknown']
+  };
+  const[cls,lbl]=map[status||'unknown']||map.unknown;
+  return `<span class="badge ${cls}">${lbl}</span>`;
+}
+
+function calcETADate(distributor,fromDate){
+  if(!distributor)return today_str();
+  const d=fromDate?new Date(fromDate+'T12:00:00'):new Date();
+  const isBefore345=new Date()<new Date(new Date().setHours(15,45,0,0));
+  if(distributor.toLowerCase().includes('san antonio')||distributor.toLowerCase().includes('reliable — s')){
+    const eta=new Date(d);eta.setDate(eta.getDate()+(isBefore345?1:2));
+    while(eta.getDay()===0||eta.getDay()===6)eta.setDate(eta.getDate()+1);
+    return eta.toISOString().slice(0,10);
+  }
+  if(distributor.toLowerCase().includes('mesquite')){
+    const eta=new Date(d);eta.setDate(eta.getDate()+(isBefore345?2:3));
+    while(eta.getDay()===0)eta.setDate(eta.getDate()+1);
+    if(eta.getDay()===6)eta.setDate(eta.getDate()+2);
+    return eta.toISOString().slice(0,10);
+  }
+  return today_str();
+}
+function today_str(){return new Date().toISOString().slice(0,10);}
+
+function saveTracking(id,val){
+  val=val.trim();if(!val)return;
+  const o=D.orders.find(x=>x.id==id);if(!o)return;
+  o.trackingNum=val;save('orders');renderArrivals();showToast('Tracking number saved.');
+}
+function confirmPickup(id,checked){
+  const o=D.orders.find(x=>x.id==id);if(!o)return;
+  o.pickupConfirmed=checked;o.status=checked?'pickup_confirmed':'pickup_pending';
+  save('orders');renderArrivals();showToast(checked?'Pickup confirmed.':'Confirmation cleared.');
+}
+function markArrived(id){
+  const o=D.orders.find(x=>x.id==id);if(!o)return;
+  o.status='arrived';o.arrivedDate=today_str();
+  // add to inventory
+  const loc=D.locations[0]||'Warehouse / Shop';
+  const existing=D.inventory.find(p=>p.partNum&&p.partNum.toLowerCase()===o.partNum.toLowerCase()&&p.loc===loc);
+  if(existing){existing.qty+=o.qty||1;existing.lastUpdated=today_str();}
+  else{D.inventory.push({id:Date.now(),partNum:o.partNum,desc:o.desc,brand:o.brand,cat:'',qty:o.qty||1,loc,distributor:o.distributor,addedDate:today_str(),lastUpdated:today_str()});}
+  save('orders');save('inventory');updateBadges();renderArrivals();
+  showToast(`${o.partNum} marked arrived and added to inventory.`);
+}
+function moveToInvFromOrder(id){markArrived(id);}
+function scheduleReturn(id){
+  const o=D.orders.find(x=>x.id==id);if(!o)return;
+  showToast(`Job #${o.jobNum||'(no job linked)'} — schedule return visit in booking system.`);
+}
+function flagConflictResolution(id,action){
+  const o=D.orders.find(x=>x.id==id);if(!o)return;
+  if(action==='reschedule'){o.conflictAction='reschedule_customer';showToast(`Flagged: call customer for job #${o.jobNum} to reschedule.`);}
+  if(action==='early_run'){o.conflictAction='early_run';showToast('Flagged: early pickup run needed — confirm with manager.');}
+  save('orders');renderArrivals();
+}
+function switchToShipped(id){
+  const o=D.orders.find(x=>x.id==id);if(!o)return;
+  o.fulfillment='shipped';o.pickupRun=null;o.pickupConfirmed=false;
+  save('orders');renderArrivals();showToast('Switched to shipped fulfillment.');
+}
+
+// ═══════════════════════════════════════════════════════
+// PATCH saveOrderItem to include new fields
+// ═══════════════════════════════════════════════════════
+
+function saveOrderItem_ORIG(){
+  const num=document.getElementById('ao-num').value.trim();if(!num){showToast('Enter a part number.');return;}
+  D.orders.push({id:Date.now(),partNum:num,desc:document.getElementById('ao-desc').value,brand:document.getElementById('ao-brand').value,qty:parseInt(document.getElementById('ao-qty').value)||1,distributor:document.getElementById('ao-dist')?.value||'',tech:document.getElementById('ao-tech')?.value||'',priority:document.getElementById('ao-pri').value,status:'pending',type:addOrderType,addedDate:today()});
+  save('orders');updateBadges();renderOrders();closeAddOrder();showToast('Part added to order list.');
+  ['ao-num','ao-desc','ao-brand','ao-tech'].forEach(id=>{const el=document.getElementById(id);if(el)el.value='';});
+}
+function saveOrderItem(){
+  const num=document.getElementById('ao-num').value.trim();
+  if(!num){showToast('Enter a part number.');return;}
+  const fulfillment=document.getElementById('ao-fulfillment')?.value||'shipped';
+  const avail=document.getElementById('ao-avail')?.value||'unknown';
+  const pickupRun=document.getElementById('ao-pickup-run')?.value||null;
+  const pickupType=document.getElementById('ao-pickup-type')?.value||null;
+  const backorderETA=document.getElementById('ao-backorder-eta')?.value||null;
+  const jobNum=document.getElementById('ao-jobnum')?.value?.trim()||'';
+  const dist=document.getElementById('ao-dist')?.value||'';
+  const order={
+    id:Date.now(),
+    partNum:num,
+    desc:document.getElementById('ao-desc').value,
+    brand:document.getElementById('ao-brand').value,
+    qty:parseInt(document.getElementById('ao-qty').value)||1,
+    distributor:fulfillment==='pickup'?'Reliable — San Antonio':dist,
+    tech:document.getElementById('ao-tech')?.value||'',
+    priority:document.getElementById('ao-pri').value,
+    status:fulfillment==='pickup'?(pickupRun&&pickupRun!=='early'?'pickup_pending':'pickup_pending'):'pending',
+    type:addOrderType,
+    addedDate:today(),
+    fulfillment,
+    availStatus:avail,
+    pickupRun:fulfillment==='pickup'?pickupRun:null,
+    pickupType:fulfillment==='pickup'?pickupType:null,
+    pickupConfirmed:false,
+    backorderETA:backorderETA,
+    jobNum,
+    trackingNum:'',
+  };
+  D.orders.push(order);
+  // start return clock if shipped and ordered
+  if(fulfillment==='shipped'){
+    D.returns.push({id:Date.now()+1,partNum:num,desc:order.desc,brand:order.brand,qty:order.qty,distributor:order.distributor,orderedDate:today(),status:'pending'});
+    save('returns');
+  }
+  save('orders');updateBadges();renderOrders();closeAddOrder();
+  if(avail==='backordered'||avail==='backordered_eta'){
+    showToast(`⚠ ${num} is backordered — customer communication needed.`);
+  } else {
+    showToast('Part added to order list.');
+  }
+  ['ao-num','ao-desc','ao-brand','ao-jobnum'].forEach(id=>{const el=document.getElementById(id);if(el)el.value='';});
+}
+
+function exportOrders(type){
+  const items=D.orders.filter(o=>o.type===type&&o.status==='pending');
+  if(!items.length){showToast('Nothing to export.');return;}
+  const h=['Part #','Description','Brand','Qty','Distributor','Tech','Priority','Added','ETA'];
+  const rows=items.map(p=>[p.partNum,p.desc,p.brand,p.qty,p.distributor,p.tech,p.priority,p.addedDate,calcETA(p.distributor,p.addedDate)].map(v=>`"${(v||'').toString().replace(/"/g,'""')}"`));
+  dlFile(`ca_${type}_order_${today()}.csv`,[h,...rows].map(r=>r.join(',')).join('\n'),'text/csv');
+  showToast('Order list exported.');
+}
+
+// ═══════════════════════════════════════════════════════
+// INVENTORY
+// ═══════════════════════════════════════════════════════
+function renderInv(){
+  const q=document.getElementById('inv-search').value.toLowerCase();
+  const locF=document.getElementById('inv-loc-filter').value;
+  let parts=D.inventory;
+  if(showOOS)parts=parts.filter(p=>p.qty===0);
+  if(locF)parts=parts.filter(p=>p.loc===locF);
+  if(q)parts=parts.filter(p=>(p.partNum+p.desc+p.brand+p.cat).toLowerCase().includes(q));
+
+  const inStock=D.inventory.filter(p=>p.qty>0).length;
+  const zero=D.inventory.filter(p=>p.qty===0).length;
+  const total=D.inventory.reduce((a,p)=>a+p.qty,0);
+  document.getElementById('inv-total').textContent=D.inventory.length;
+  document.getElementById('inv-instock').textContent=inStock;
+  document.getElementById('inv-zero').textContent=zero;
+  document.getElementById('inv-units').textContent=total;
+
+  const div=document.getElementById('inv-table');
+  if(!parts.length){div.innerHTML=`<div style="text-align:center;padding:32px;color:var(--muted);font-size:13px;">${D.inventory.length?'No results.':'No parts yet — scan a part to build your inventory.'}</div>`;return;}
+
+  let html=`<div class="tbl-wrap"><table><thead><tr><th>Part #</th><th>Description</th><th>Brand</th><th>Category</th><th>Location</th><th>Qty</th><th>Updated</th><th>Transfer</th></tr></thead><tbody>`;
+  parts.forEach(p=>{
+    html+=`<tr>
+      <td class="mono">${p.partNum||'—'}</td>
+      <td>${p.desc||'—'}</td><td>${p.brand||'—'}</td><td>${p.cat||'—'}</td>
+      <td><span class="loc-chip">${p.loc||'—'}</span></td>
+      <td>
+        <div style="display:flex;align-items:center;gap:7px;">
+          <button onclick="adjInv('${p.id}',-1)" style="background:var(--border);border:none;border-radius:4px;color:var(--text);width:22px;height:22px;cursor:pointer;font-size:14px;">−</button>
+          <span style="font-family:var(--mono);font-weight:600;color:${p.qty===0?'var(--red)':'var(--text)'};">${p.qty}</span>
+          <button onclick="adjInv('${p.id}',1)" style="background:var(--border);border:none;border-radius:4px;color:var(--text);width:22px;height:22px;cursor:pointer;font-size:14px;">+</button>
+        </div>
+      </td>
+      <td style="font-size:11px;color:var(--muted);">${p.lastUpdated||'—'}</td>
+      <td>
+        <select onchange="transferPart('${p.id}',this.value)" style="font-size:11px;padding:4px 6px;width:auto;">
+          <option value="">Move to…</option>
+          ${D.locations.filter(l=>l!==p.loc).map(l=>`<option value="${l}">${l}</option>`).join('')}
+        </select>
+      </td>
+    </tr>`;
+  });
+  html+=`</tbody></table></div>`;
+  div.innerHTML=html;
+}
+
+function adjInv(id,delta){
+  const p=D.inventory.find(x=>x.id==id);if(!p)return;
+  p.qty=Math.max(0,p.qty+delta);p.lastUpdated=today();
+  if(delta<0)checkReorderTriggers(p);
+  dbUpdate('inventory', p.id, {qty: p.qty, lastUpdated: p.lastUpdated});
+  save('inventory');renderInv();
+}
+
+function transferPart(id,toLoc){
+  if(!toLoc)return;
+  const p=D.inventory.find(x=>x.id==id);if(!p)return;
+  const existing=D.inventory.find(x=>x.partNum===p.partNum&&x.loc===toLoc&&x.id!=id);
+  if(existing){existing.qty+=p.qty;existing.lastUpdated=today();D.inventory=D.inventory.filter(x=>x.id!=id);}
+  else{p.loc=toLoc;p.lastUpdated=today();}
+  save('inventory');renderInv();showToast(`${p.partNum} transferred to ${toLoc}.`);
+}
+
+function toggleOOS(){showOOS=!showOOS;document.getElementById('oos-btn').textContent=showOOS?'🟢 Show all':'🔴 Out of stock';renderInv();}
+function populateLocFilters(){
+  const sel=document.getElementById('inv-loc-filter');
+  const cur=sel.value;
+  sel.innerHTML='<option value="">All locations</option>'+D.locations.map(l=>`<option value="${l}">${l}</option>`).join('');
+  sel.value=cur;
+}
+function populateLocSelect(selId){
+  const sel=document.getElementById(selId);
+  sel.innerHTML=D.locations.map(l=>`<option value="${l}">${l}</option>`).join('');
+}
+
+function checkReorderTriggers(part){
+  if(!part)return;
+  const onStock=D.stockList.find(s=>s.partNum&&s.partNum===part.partNum||s.desc.toLowerCase()===part.desc.toLowerCase());
+  const yearUses=D.jobs.filter(j=>j.parts&&j.parts.toLowerCase().includes((part.partNum||'').toLowerCase())&&j.date&&j.date>=(new Date().getFullYear()-1)+'-01-01').length;
+  const belowMin=onStock&&part.qty<onStock.minQty;
+  const highUse=yearUses>=3;
+  if(belowMin||highUse){
+    const reason=belowMin?`Below minimum (${part.qty}/${onStock.minQty})`:`Used ${yearUses}× this year`;
+    if(!D.orders.find(o=>o.partNum===part.partNum&&o.status==='pending')){
+      D.orders.push({id:Date.now(),partNum:part.partNum,desc:part.desc,brand:part.brand,qty:(onStock?.minQty||1)-part.qty||1,distributor:part.distributor||'',tech:'Auto-trigger',priority:'normal',status:'pending',type:'weekly',addedDate:today(),triggerReason:reason});
+      save('orders');updateBadges();showToast(`Reorder suggested: ${part.partNum||part.desc} — ${reason}`);
+    }
+  }
+}
+
+function exportInvCSV(){
+  if(!D.inventory.length){showToast('Nothing to export.');return;}
+  const h=['Part #','Desc','Brand','Category','Qty','Location','Distributor','Added','Updated'];
+  const rows=D.inventory.map(p=>[p.partNum,p.desc,p.brand,p.cat,p.qty,p.loc,p.distributor,p.addedDate,p.lastUpdated].map(v=>`"${(v||'').toString().replace(/"/g,'""')}"`));
+  dlFile(`ca_inventory_${today()}.csv`,[h,...rows].map(r=>r.join(',')).join('\n'),'text/csv');
+}
+
+// ═══════════════════════════════════════════════════════
+// RETURNS
+// ═══════════════════════════════════════════════════════
+function renderReturns(){
+  const pending=D.returns.filter(r=>r.status==='pending');
+  const urgent=pending.filter(r=>(25-daysSince(r.orderedDate))<=5);
+  const alerts=document.getElementById('returns-alerts');
+  alerts.innerHTML=urgent.map(r=>`<div class="alert alert-red"><span class="alert-icon">⚠</span><span><strong>${r.partNum}</strong> — return expires in ${Math.max(0,25-daysSince(r.orderedDate))} days. Contact ${r.distributor||'distributor'} immediately.</span></div>`).join('');
+
+  const div=document.getElementById('returns-table');
+  if(!pending.length){div.innerHTML='<div style="text-align:center;padding:32px;color:var(--muted);font-size:13px;">No pending returns.</div>';return;}
+  let html=`<div class="tbl-wrap"><table><thead><tr><th>Part #</th><th>Description</th><th>Brand</th><th>Distributor</th><th>Ordered</th><th>Days left</th><th>Action</th></tr></thead><tbody>`;
+  pending.sort((a,b)=>daysSince(b.orderedDate)-daysSince(a.orderedDate)).forEach(r=>{
+    const rem=Math.max(0,25-daysSince(r.orderedDate));
+    const pct=Math.min(100,(daysSince(r.orderedDate)/25)*100);
+    const color=rem<=3?'var(--red)':rem<=7?'var(--amber)':'var(--green)';
+    const bc=rem<=3?'b-red':rem<=7?'b-amber':'b-green';
+    html+=`<tr>
+      <td class="mono">${r.partNum}</td><td>${r.desc||'—'}</td><td>${r.brand||'—'}</td>
+      <td>${r.distributor||'—'}</td><td style="font-size:11px;">${r.orderedDate||'—'}</td>
+      <td>
+        <span class="badge ${bc}">${rem}d</span>
+        <div class="days-bar"><div class="days-fill" style="width:${pct}%;background:${color};"></div></div>
+      </td>
+      <td><button class="btn btn-p btn-sm" onclick="markReturned('${r.id}')">Returned ✔</button></td>
+    </tr>`;
+  });
+  html+=`</tbody></table></div>`;
+  div.innerHTML=html;
+}
+
+function markReturned(id){
+  const r=D.returns.find(x=>x.id==id);if(!r)return;
+  r.status='returned';r.returnedDate=today();
+  dbUpdate('returns', r.id, {status:'returned', returnedDate: r.returnedDate});
+  save('returns');updateBadges();renderReturns();showToast(`${r.partNum} marked returned.`);
+}
+
+// ═══════════════════════════════════════════════════════
+// JOB LOG
+// ═══════════════════════════════════════════════════════
+function renderJobLog(){
+  const div=document.getElementById('job-log-list');
+  if(!D.jobs.length){div.innerHTML='<div style="text-align:center;padding:32px;color:var(--muted);font-size:13px;">No jobs logged yet.</div>';return;}
+  div.innerHTML=D.jobs.map(j=>`
+    <div class="card" style="margin-bottom:12px;">
+      <div style="display:flex;justify-content:space-between;flex-wrap:wrap;gap:8px;margin-bottom:8px;">
+        <div>
+          <span style="font-family:var(--mono);font-size:13px;color:var(--teal);">${j.model||'—'}</span>
+          ${j.brand?`<span style="font-size:11px;color:var(--muted);margin-left:6px;">${j.brand}</span>`:''}
+          ${j.jobNum?`<span class="badge b-blue" style="margin-left:6px;">Job #${j.jobNum}</span>`:''}
+          ${j.customer?`<span style="font-size:11px;color:var(--muted);margin-left:6px;">${j.customer}</span>`:''}
+          ${j.type?`<span class="badge ${j.type==='Commercial'?'b-blue':'b-muted'}" style="margin-left:6px;">${j.type}</span>`:''}
+          ${j.ftf?`<span class="badge ${j.ftf==='yes'?'b-green':'b-amber'}" style="margin-left:4px;">${j.ftf==='yes'?'First-trip fix':'2nd trip'}</span>`:''}
+        </div>
+        <div style="font-size:11px;color:var(--muted);">${j.date||'—'}${j.tech?' · '+j.tech:''}</div>
+      </div>
+      ${(j.csrNotes||j.aiSummary)?`
+      <div style="display:grid;grid-template-columns:1fr 1fr;gap:10px;margin-bottom:10px;border-bottom:1px solid var(--border);padding-bottom:10px;">
+        ${j.csrNotes?`<div><div style="font-size:9px;font-weight:600;letter-spacing:.09em;text-transform:uppercase;color:var(--muted);margin-bottom:4px;">CSR call notes</div><div style="font-size:11px;color:var(--muted);line-height:1.5;">${j.csrNotes}</div></div>`:''}
+        ${j.aiSummary?`<div><div style="font-size:9px;font-weight:600;letter-spacing:.09em;text-transform:uppercase;color:var(--muted);margin-bottom:4px;">AI triage summary</div><div style="font-size:11px;color:var(--muted);line-height:1.5;">${j.aiSummary.replace(/\n/g,' ').slice(0,280)}${j.aiSummary.length>280?'…':''}</div></div>`:''}
+      </div>`:''}
+      ${j.symptom?`<div style="font-size:12px;margin-bottom:5px;"><strong>Symptom:</strong> ${j.symptom}</div>`:''}
+      ${j.diag?`<div style="font-size:12px;margin-bottom:5px;"><strong>Diagnosis:</strong> ${j.diag}</div>`:''}
+      ${j.parts?`<div style="font-size:12px;margin-bottom:5px;"><strong>Parts:</strong> ${j.parts}${j.cost?` <span style="color:var(--muted);">(${j.cost})</span>`:''}</div>`:''}
+      ${j.notes?`<div style="font-size:11px;color:var(--amber);background:rgba(245,166,35,.06);border-radius:6px;padding:7px 10px;border-left:2px solid var(--amber);">💡 ${j.notes}</div>`:''}
+    </div>`).join('');
+}
+
+function renderPendingBanner(){
+  const div=document.getElementById('triage-pending-banner');
+  if(pendingTriageSummary){
+    div.innerHTML=`<div class="job-banner"><div class="jb-title">💾 Triage session ready — ${pendingTriageSummary.model||'Unknown model'}</div><div class="jb-sub">Link to a job number and customer name to save the diagnosis summary.</div><div class="frow"><input type="text" id="save-job-num2" placeholder="Job #" style="width:110px;"><input type="text" id="save-customer2" placeholder="Customer name"><button class="btn btn-p btn-sm" onclick="confirmSaveToLog2()">Save to log</button><button class="btn btn-m btn-sm" onclick="dismissPending()">Dismiss</button></div></div>`;
+  } else {div.innerHTML='';}
+}
+function confirmSaveToLog2(){
+  document.getElementById('save-job-num').value=document.getElementById('save-job-num2')?.value||'';
+  document.getElementById('save-customer').value=document.getElementById('save-customer2')?.value||'';
+  confirmSaveToLog();renderPendingBanner();renderJobLog();
+}
+function dismissPending(){pendingTriageSummary=null;renderPendingBanner();}
+
+function toggleJobForm(){currentJobFormOpen=!currentJobFormOpen;document.getElementById('job-form').style.display=currentJobFormOpen?'block':'none';if(currentJobFormOpen)document.getElementById('jl-date').value=today();}
+
+function saveJob(){
+  const model=document.getElementById('jl-model').value.trim();if(!model){showToast('Enter a model number.');return;}
+  const newJob = {id:Date.now(),date:document.getElementById('jl-date').value,tech:document.getElementById('jl-tech').value,jobNum:document.getElementById('jl-jobnum').value,customer:'',type:document.getElementById('jl-type').value,brand:document.getElementById('jl-brand').value,model,cat:document.getElementById('jl-cat').value,symptom:document.getElementById('jl-symptom').value,code:document.getElementById('jl-code').value,diag:document.getElementById('jl-diag').value,ftf:document.getElementById('jl-ftf').value,parts:document.getElementById('jl-parts').value,cost:document.getElementById('jl-cost').value,notes:document.getElementById('jl-notes').value,csrNotes:'',aiSummary:'',fromTriage:false};
+  D.jobs.unshift(newJob);
+  dbInsert('job_log', newJob);
+  save('jobs');toggleJobForm();renderJobLog();showToast('Job saved to log.');
+}
+
+function exportJobsCSV(){
+  if(!D.jobs.length){showToast('No jobs to export.');return;}
+  const h=['Date','Tech','Job#','Customer','Type','Brand','Model','Category','Symptom','Fault Code','Diagnosis','FTF','Parts','Cost','Notes','CSR Notes'];
+  const rows=D.jobs.map(j=>[j.date,j.tech,j.jobNum,j.customer,j.type,j.brand,j.model,j.cat,j.symptom,j.code,j.diag,j.ftf,j.parts,j.cost,j.notes,j.csrNotes].map(v=>`"${(v||'').toString().replace(/"/g,'""')}"`));
+  dlFile(`ca_joblog_${today()}.csv`,[h,...rows].map(r=>r.join(',')).join('\n'),'text/csv');
+}
+
+// ═══════════════════════════════════════════════════════
+// SETTINGS
+// ═══════════════════════════════════════════════════════
+function renderSettings(){
+  // Locations
+  document.getElementById('loc-list').innerHTML=D.locations.map((l,i)=>`
+    <div class="stock-item">
+      <input type="text" value="${l}" onchange="D.locations[${i}]=this.value;save('locations');" style="flex:1;font-size:12px;">
+      <button onclick="removeLocation(${i})" class="btn btn-r btn-sm">Remove</button>
+    </div>`).join('');
+
+  // Stock list
+  document.getElementById('stock-list').innerHTML=D.stockList.map((s,i)=>`
+    <div class="stock-item">
+      <input type="text" value="${s.partNum||''}" placeholder="Part #" onchange="D.stockList[${i}].partNum=this.value;save('stockList');" style="width:120px;font-family:var(--mono);font-size:11px;">
+      <input type="text" value="${s.desc||''}" placeholder="Description" onchange="D.stockList[${i}].desc=this.value;save('stockList');" style="flex:1;">
+      <input type="text" value="${s.brand||''}" placeholder="Brand" onchange="D.stockList[${i}].brand=this.value;save('stockList');" style="width:120px;">
+      <input type="number" value="${s.minQty||1}" min="0" title="Min qty" onchange="D.stockList[${i}].minQty=parseInt(this.value)||1;save('stockList');" style="width:60px;">
+      <button onclick="removeStockItem(${i})" class="btn btn-r btn-sm">✕</button>
+    </div>`).join('');
+
+  // Pickup schedule
+  const npd=localStorage.getItem('ca_next_pickup')||'';
+  const npEl=document.getElementById('next-pickup-date');
+  if(npEl) npEl.value=npd;
+  renderPickupSchedulePreview();
+
+  // Rates
+  document.getElementById('rate-res').value=D.rates.res||150;
+  document.getElementById('rate-comm').value=D.rates.comm||185;
+  document.getElementById('rate-pro').value=D.rates.pro||165;
+  document.getElementById('fee-ship').value=D.rates.ship||15;
+  document.getElementById('fee-sameday').value=D.rates.sameday||25;
+}
+
+function addLocation(){
+  const val=document.getElementById('new-loc-name').value.trim();
+  if(!val){showToast('Enter a location name.');return;}
+  D.locations.push(val);save('locations');document.getElementById('new-loc-name').value='';renderSettings();showToast('Location added.');
+}
+function removeLocation(i){if(D.locations.length<=1){showToast('Keep at least one location.');return;}D.locations.splice(i,1);save('locations');renderSettings();}
+
+function addStockItem(){D.stockList.push({partNum:'',desc:'',brand:'',minQty:1,cat:'Other'});save('stockList');renderSettings();}
+function removeStockItem(i){D.stockList.splice(i,1);save('stockList');renderSettings();}
+
+function saveRates(){
+  D.rates={res:parseInt(document.getElementById('rate-res').value)||150,comm:parseInt(document.getElementById('rate-comm').value)||185,pro:parseInt(document.getElementById('rate-pro').value)||165,ship:parseInt(document.getElementById('fee-ship').value)||15,sameday:parseInt(document.getElementById('fee-sameday').value)||25};
+  saveSetting('rates', D.rates);showToast('Rates saved.');
+}
+
+function clearAllData(){
+  if(!confirm('Clear ALL local data? This cannot be undone.'))return;
+  ['orders','returns','inventory','jobs','locations','stock','rates'].forEach(k=>localStorage.removeItem('ca_'+k));
+  location.reload();
+}
+
+// ═══════════════════════════════════════════════════════
+// HOME / DASHBOARD
+// ═══════════════════════════════════════════════════════
+function refreshHome(){
+  const hr=new Date().getHours();
+  const greet=hr<12?'Good morning.':hr<17?'Good afternoon.':'Good evening.';
+  document.getElementById('home-greeting').textContent=greet;
+
+  const pendingDaily=D.orders.filter(o=>o.type==='daily'&&o.status==='pending').length;
+  document.getElementById('home-orders-sub').textContent=`${pendingDaily} urgent part${pendingDaily!==1?'s':''} today`;
+
+  const urgentRet=D.returns.filter(r=>r.status==='pending'&&(25-daysSince(r.orderedDate))<=5);
+  const alerts=document.getElementById('home-alerts');
+  alerts.innerHTML=[
+    ...urgentRet.map(r=>`<div class="alert alert-red"><span class="alert-icon">⚠</span><span><strong>${r.partNum}</strong> — return expires in ${Math.max(0,25-daysSince(r.orderedDate))} days. Contact ${r.distributor||'vendor'} before deadline.</span></div>`),
+    ...(pendingDaily>0?[`<div class="alert alert-warn"><span class="alert-icon">📋</span><span>${pendingDaily} part(s) on today's urgent list. Order before 3:45 PM CT.</span></div>`]:[]),
+  ].join('');
+
+  const dp=document.getElementById('home-daily-preview');
+  const daily=D.orders.filter(o=>o.type==='daily'&&o.status==='pending').slice(0,4);
+  dp.innerHTML=daily.length?daily.map(p=>`<div style="display:flex;justify-content:space-between;align-items:center;padding:5px 0;border-bottom:1px solid var(--border);font-size:12px;gap:8px;"><span class="mono" style="font-size:11px;">${p.partNum}</span><span style="color:var(--muted);flex:1;margin:0 8px;overflow:hidden;text-overflow:ellipsis;white-space:nowrap;">${p.desc||p.brand||'—'}</span><span style="font-size:11px;color:var(--muted);">${calcETA(p.distributor,p.addedDate)}</span></div>`).join(''):'<div style="font-size:12px;color:var(--muted);">All clear.</div>';
+
+  const rp=document.getElementById('home-returns-preview');
+  const rets=D.returns.filter(r=>r.status==='pending').sort((a,b)=>daysSince(b.orderedDate)-daysSince(a.orderedDate)).slice(0,4);
+  rp.innerHTML=rets.length?rets.map(r=>{const rem=Math.max(0,25-daysSince(r.orderedDate));return`<div style="display:flex;justify-content:space-between;align-items:center;padding:5px 0;border-bottom:1px solid var(--border);font-size:12px;gap:8px;"><span class="mono" style="font-size:11px;">${r.partNum}</span><span style="color:var(--muted);flex:1;margin:0 8px;">${r.distributor||'—'}</span><span class="badge ${rem<=3?'b-red':rem<=7?'b-amber':'b-green'}">${rem}d</span></div>`}).join(''):'<div style="font-size:12px;color:var(--muted);">No urgent returns.</div>';
+
+  updateBadges();
+}
+
+function updateBadges(){
+  const pending=D.orders.filter(o=>o.status==='pending').length;
+  const ob=document.getElementById('badge-orders');
+  ob.textContent=pending;ob.style.display=pending?'inline-flex':'none';
+  const urgRet=D.returns.filter(r=>r.status==='pending'&&(25-daysSince(r.orderedDate))<=7).length;
+  const rb=document.getElementById('badge-returns');
+  rb.style.display=urgRet?'inline-flex':'none';
+  // arrivals conflicts
+  const arrConflicts=D.orders.filter(o=>{
+    if(o.fulfillment!=='pickup'||!o.pickupRun||o.pickupRun==='early')return false;
+    const job=D.jobs.find(j=>j.jobNum===o.jobNum);
+    if(!job||!job.date)return false;
+    return new Date(job.date+'T12:00:00')<new Date(o.pickupRun+'T12:00:00');
+  }).length;
+  const ab=document.getElementById('badge-arrivals');
+  if(ab) ab.style.display=arrConflicts?'inline-flex':'none';
+}
+
+// ═══════════════════════════════════════════════════════
+// UTILS
+// ═══════════════════════════════════════════════════════
+function today(){return new Date().toISOString().slice(0,10);}
+function daysSince(d){if(!d)return 0;return Math.floor((Date.now()-new Date(d).getTime())/(864e5));}
+function f2b64(file){return new Promise((res,rej)=>{const r=new FileReader();r.onload=e=>res(e.target.result);r.onerror=rej;r.readAsDataURL(file);});}
+function dataURLtoFile(u,name){const[h,d]=u.split(',');const m=h.match(/:(.*?);/)[1];const b=atob(d);const arr=new Uint8Array(b.length);for(let i=0;i<b.length;i++)arr[i]=b.charCodeAt(i);return new File([arr],name,{type:m});}
+function dlFile(name,content,type){const b=new Blob([content],{type});const a=document.createElement('a');a.href=URL.createObjectURL(b);a.download=name;a.click();}
+function showToast(msg){const t=document.getElementById('toast');t.textContent=msg;t.classList.add('show');setTimeout(()=>t.classList.remove('show'),3000);}
+
+// ── BOOT SEQUENCE ─────────────────────────────────────
+document.getElementById('topbar-date').textContent=new Date().toLocaleDateString('en-US',{weekday:'short',month:'short',day:'numeric'});
+
+// Hide app until authenticated
+document.getElementById('nav').style.display  = 'none';
+document.getElementById('main').style.display = 'none';
+
+(async () => {
+  const ok = await initSupabase();
+  if(!ok){
+    // Supabase failed to load — run in offline/local mode
+    showOfflineBanner();
+    document.getElementById('nav').style.display  = 'flex';
+    document.getElementById('main').style.display = 'flex';
+    refreshHome();
+    return;
+  }
+  setupAuthListener();
+  const { data: { session } } = await sb.auth.getSession();
+  if(session){
+    currentUser = session.user;
+    const userEl = document.getElementById('nav-user');
+    if(userEl) userEl.textContent = session.user.email;
+    showApp();
+  } else {
+    showLogin();
+  }
+})();
+
+
+// ── PWA INSTALL PROMPT ──────────────────────────────────────────────────
+let deferredInstallPrompt = null;
+
+window.addEventListener('beforeinstallprompt', (e) => {
+  e.preventDefault();
+  deferredInstallPrompt = e;
+  // Show install bar after a short delay so UI loads first
+  setTimeout(() => {
+    const bar = document.getElementById('pwa-install-bar');
+    if(bar && !localStorage.getItem('ca_pwa_dismissed')) {
+      bar.classList.add('show');
+    }
+  }, 2000);
+});
+
+document.getElementById('pwa-install-btn')?.addEventListener('click', async () => {
+  if(!deferredInstallPrompt) return;
+  deferredInstallPrompt.prompt();
+  const { outcome } = await deferredInstallPrompt.userChoice;
+  if(outcome === 'accepted') {
+    document.getElementById('pwa-install-bar').classList.remove('show');
+    showToast('CA Hub installed — find it on your home screen.');
+  }
+  deferredInstallPrompt = null;
+});
+
+window.addEventListener('appinstalled', () => {
+  document.getElementById('pwa-install-bar').classList.remove('show');
+  deferredInstallPrompt = null;
+  showToast('CA Hub installed successfully.');
+});
+
+function dismissInstall(){
+  document.getElementById('pwa-install-bar').classList.remove('show');
+  localStorage.setItem('ca_pwa_dismissed', '1');
+}
+
+// iOS Safari install instructions (no beforeinstallprompt support)
+const isIOS = /iphone|ipad|ipod/i.test(navigator.userAgent);
+const isInStandaloneMode = window.matchMedia('(display-mode: standalone)').matches || window.navigator.standalone;
+if(isIOS && !isInStandaloneMode && !localStorage.getItem('ca_pwa_dismissed')){
+  setTimeout(() => {
+    const bar = document.getElementById('pwa-install-bar');
+    if(bar){
+      bar.querySelector('.pwa-sub').textContent = 'Tap Share → Add to Home Screen in Safari';
+      bar.querySelector('#pwa-install-btn').style.display = 'none';
+      bar.classList.add('show');
+    }
+  }, 2000);
+}
+
+
+// ═══════════════════════════════════════════════════════
+// KNOWLEDGE BASE
+// ═══════════════════════════════════════════════════════
+var kbCollapsed = {};
+
+function renderKB(){
+  // Ensure all categories start expanded
+  document.querySelectorAll('.kb-cat-body').forEach(function(b){
+    b.classList.remove('collapsed');
+  });
+  document.querySelectorAll('.kb-chevron').forEach(function(c){
+    c.classList.remove('closed');
+  });
+}
+
+function toggleKBCat(id){
+  var body = document.getElementById('kb-body-'+id);
+  var chev = document.getElementById('kb-chev-'+id);
+  if(!body) return;
+  var isCollapsed = body.classList.contains('collapsed');
+  if(isCollapsed){
+    body.classList.remove('collapsed');
+    if(chev) chev.classList.remove('closed');
+  } else {
+    body.classList.add('collapsed');
+    if(chev) chev.classList.add('closed');
+  }
+}
+
+function filterKB(){
+  var q = (document.getElementById('kb-search').value || '').toLowerCase().trim();
+  var noResults = document.getElementById('kb-no-results');
+  var totalVisible = 0;
+
+  document.querySelectorAll('.kb-article').forEach(function(article){
+    if(!q){
+      article.classList.remove('kb-hidden');
+      totalVisible++;
+      return;
+    }
+    var title = (article.querySelector('.kb-article-title') || {}).textContent || '';
+    var body = article.textContent || '';
+    var tags = article.getAttribute('data-tags') || '';
+    var combined = (title + ' ' + body + ' ' + tags).toLowerCase();
+    if(combined.includes(q)){
+      article.classList.remove('kb-hidden');
+      totalVisible++;
+    } else {
+      article.classList.add('kb-hidden');
+    }
+  });
+
+  // Show/hide categories based on whether they have visible articles
+  document.querySelectorAll('.kb-category').forEach(function(cat){
+    var visibleInCat = cat.querySelectorAll('.kb-article:not(.kb-hidden)').length;
+    cat.style.display = visibleInCat > 0 ? 'block' : 'none';
+    // Auto-expand categories with results when searching
+    if(q && visibleInCat > 0){
+      var body = cat.querySelector('.kb-cat-body');
+      var chev = cat.querySelector('.kb-chevron');
+      if(body) body.classList.remove('collapsed');
+      if(chev) chev.classList.remove('closed');
+    }
+  });
+
+  if(noResults) noResults.style.display = totalVisible === 0 && q ? 'block' : 'none';
+}
+
+// drag-drop on scan box
+const scanDrop=document.getElementById('scan-drop');
+scanDrop.addEventListener('dragover',e=>{e.preventDefault();scanDrop.classList.add('drag');});
+scanDrop.addEventListener('dragleave',()=>scanDrop.classList.remove('drag'));
+scanDrop.addEventListener('drop',e=>{e.preventDefault();scanDrop.classList.remove('drag');const f=e.dataTransfer.files[0];if(f&&f.type.startsWith('image/'))handleScan(f);});
+</script>
+
+
+<!-- PWA INSTALL BANNER -->
+<div id="pwa-install-bar">
+  <div class="pwa-icon">CA</div>
+  <div class="pwa-text">
+    <div class="pwa-title">Install CA Hub</div>
+    <div class="pwa-sub">Add to home screen for the full app experience</div>
+  </div>
+  <button class="btn btn-p btn-sm" id="pwa-install-btn">Install</button>
+  <button onclick="dismissInstall()" style="background:none;border:none;color:var(--muted);cursor:pointer;font-size:20px;padding:2px 6px;">✕</button>
+</div>
+</body>
+</html>
