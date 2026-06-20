@@ -152,6 +152,7 @@ tr:hover td{background:rgba(0,201,177,.03);}
 .lbar{height:3px;background:linear-gradient(90deg,var(--teal),var(--teal-d),var(--teal));background-size:200% 100%;border-radius:2px;display:none;animation:shimmer 1.2s infinite;}
 @keyframes shimmer{0%{background-position:200% 0}100%{background-position:-200% 0}}
 .spin{display:none;text-align:center;padding:12px;color:var(--muted);font-size:12px;}
+@keyframes slideDown{from{opacity:0;transform:translateX(-50%) translateY(-12px);}to{opacity:1;transform:translateX(-50%) translateY(0);}}
 
 /* PRICING CARDS */
 .price-opts{display:grid;grid-template-columns:repeat(auto-fit,minmax(180px,1fr));gap:12px;margin-top:12px;}
@@ -415,6 +416,7 @@ tr:hover td{background:rgba(0,201,177,.03);}
   <div id="nav-user" style="font-size:11px;color:var(--teal);margin-bottom:6px;overflow:hidden;text-overflow:ellipsis;white-space:nowrap;"></div>
   <button onclick="signOut()" style="background:none;border:1px solid var(--border);border-radius:6px;color:var(--muted);font-size:11px;padding:4px 10px;cursor:pointer;width:100%;">Sign out</button>
   <div style="margin-top:6px;font-size:10px;color:var(--muted);">v2.0 · Supabase</div>
+  <div id="sync-status" style="font-size:10px;color:var(--green);margin-top:2px;">● Synced</div>
 </div>
 </nav>
 
@@ -874,6 +876,57 @@ tr:hover td{background:rgba(0,201,177,.03);}
 <div class="page" id="page-returns">
   <div class="pg-title">Returns Tracker</div>
   <div class="pg-sub">Parts ordered but not used. 25-day return window from order date. Red = act today.</div>
+  <div style="display:flex;gap:9px;margin-bottom:14px;flex-wrap:wrap;">
+    <button class="btn btn-p btn-sm" onclick="openAddReturn('triaged')">+ Add triaged part</button>
+    <button class="btn btn-coral btn-sm" onclick="openAddReturn('immediate')">+ Immediate return</button>
+  </div>
+
+  <!-- Add return form -->
+  <div class="card" id="add-return-form" style="display:none;margin-bottom:14px;">
+    <div class="card-label" style="margin-bottom:4px;" id="add-return-title">Add part to returns</div>
+    <div style="font-size:11px;color:var(--muted);margin-bottom:12px;" id="add-return-subtitle"></div>
+    <div class="frow">
+      <div class="fw"><label class="lbl">Part # <span style="color:var(--red);">*</span></label><input type="text" id="ar-num" style="font-family:var(--mono);" placeholder="OEM part number"></div>
+      <div class="fw"><label class="lbl">Description</label><input type="text" id="ar-desc" placeholder="e.g. Control board"></div>
+      <div class="fw"><label class="lbl">Brand</label><input type="text" id="ar-brand"></div>
+    </div>
+    <div class="frow">
+      <div class="fw"><label class="lbl">Distributor <span style="color:var(--red);">*</span></label>
+        <select id="ar-dist">
+          <option>Reliable — San Antonio</option>
+          <option>Reliable — Mesquite</option>
+          <option>PartsTown</option>
+          <option>Marcone</option>
+          <option>Encompass</option>
+          <option>APC</option>
+          <option>Other</option>
+        </select>
+      </div>
+      <div class="fw"><label class="lbl">Job # (optional)</label><input type="text" id="ar-jobnum" placeholder="Links to job record"></div>
+      <div style="width:70px;"><label class="lbl">Qty</label><input type="number" id="ar-qty" value="1" min="1"></div>
+    </div>
+    <div class="frow">
+      <div class="fw"><label class="lbl">Order date (when was it ordered?)</label><input type="date" id="ar-ordered-date"></div>
+      <div class="fw"><label class="lbl">Notes</label><input type="text" id="ar-notes" placeholder="Reason for return, condition, etc."></div>
+    </div>
+    <div id="ar-triaged-fields" style="display:none;">
+      <div class="alert alert-blue" style="margin-bottom:10px;">
+        <span class="alert-icon">ℹ</span>
+        <span>Triaged part — ordered and on hand but not yet installed. 25-day return window runs from order date.</span>
+      </div>
+    </div>
+    <div id="ar-immediate-fields" style="display:none;">
+      <div class="alert alert-warn" style="margin-bottom:10px;">
+        <span class="alert-icon">⚠</span>
+        <span>Immediate return — wrong part, duplicate order, or customer declined repair. Contact distributor now.</span>
+      </div>
+    </div>
+    <div class="arow">
+      <button class="btn btn-p btn-sm" onclick="saveAddReturn()">Add to returns</button>
+      <button class="btn btn-m btn-sm" onclick="closeAddReturn()">Cancel</button>
+    </div>
+  </div>
+
   <div id="returns-alerts" style="margin-bottom:12px;"></div>
   <div id="returns-table"></div>
 </div>
@@ -1407,6 +1460,10 @@ function showApp(){
   document.getElementById('main').style.display = 'flex';
   refreshHome();
   updateBadges();
+  // Warm the data cache
+  loadOrders();
+  loadInventory();
+  loadReturns();
   // Set up realtime subscriptions
   setupRealtime();
 }
@@ -1455,9 +1512,11 @@ async function dbInsert(table, row){
   try{
     const { data, error } = await sb.from(table).insert(rowWithUser).select().single();
     if(error) throw error;
+    setSyncStatus(true);
     return data;
   }catch(e){
     console.warn('DB insert failed, queued locally:', e.message);
+    setSyncStatus(false);
     queueOfflineOp({ type:'insert', table, row: rowWithUser });
     return rowWithUser;
   }
@@ -1648,7 +1707,7 @@ function navTo(page){
   closeNav();
   if(page==='home') refreshHome();
   if(page==='inventory'){renderInv();populateLocFilters();}
-  if(page==='orders') renderOrders();
+  if(page==='orders'){ loadOrders(); }
   if(page==='returns'){ loadReturns(); }
   if(page==='arrivals'){ renderArrivals(); }
   if(page==='joblog'){ loadJobs(); renderPendingBanner(); }
@@ -2174,10 +2233,12 @@ function saveOrderItem(){
   updateBadges();
   renderOrders();
   closeAddOrder();
+  // Confirmation toast with details
   if(avail === 'backordered' || avail === 'backordered_eta'){
-    showToast('⚠ ' + num + ' is backordered — customer communication needed.');
+    showToast('⚠ ' + num + ' added — backordered. Customer communication needed.');
   } else {
-    showToast('Part added to order list.');
+    const eta = calcETA(dist, today());
+    showConfirmation(num, order.desc, order.qty, dist, eta, addOrderType);
   }
   var clearIds = ['ao-num','ao-desc','ao-brand','ao-jobnum','ao-tech'];
   clearIds.forEach(function(id){ var el=document.getElementById(id); if(el) el.value=''; });
@@ -2711,57 +2772,8 @@ function switchToShipped(id){
 // PATCH saveOrderItem to include new fields
 // ═══════════════════════════════════════════════════════
 
-function saveOrderItem_ORIG(){
-  const num=document.getElementById('ao-num').value.trim();if(!num){showToast('Enter a part number.');return;}
-  D.orders.push({id:Date.now(),partNum:num,desc:document.getElementById('ao-desc').value,brand:document.getElementById('ao-brand').value,qty:parseInt(document.getElementById('ao-qty').value)||1,distributor:document.getElementById('ao-dist')?.value||'',tech:document.getElementById('ao-tech')?.value||'',priority:document.getElementById('ao-pri').value,status:'pending',type:addOrderType,addedDate:today()});
-  save('orders');updateBadges();renderOrders();closeAddOrder();showToast('Part added to order list.');
-  ['ao-num','ao-desc','ao-brand','ao-tech'].forEach(id=>{const el=document.getElementById(id);if(el)el.value='';});
-}
-function saveOrderItem(){
-  const num=document.getElementById('ao-num').value.trim();
-  if(!num){showToast('Enter a part number.');return;}
-  const fulfillment=document.getElementById('ao-fulfillment')?.value||'shipped';
-  const avail=document.getElementById('ao-avail')?.value||'unknown';
-  const pickupRun=document.getElementById('ao-pickup-run')?.value||null;
-  const pickupType=document.getElementById('ao-pickup-type')?.value||null;
-  const backorderETA=document.getElementById('ao-backorder-eta')?.value||null;
-  const jobNum=document.getElementById('ao-jobnum')?.value?.trim()||'';
-  const dist=document.getElementById('ao-dist')?.value||'';
-  const order={
-    id:Date.now(),
-    partNum:num,
-    desc:document.getElementById('ao-desc').value,
-    brand:document.getElementById('ao-brand').value,
-    qty:parseInt(document.getElementById('ao-qty').value)||1,
-    distributor:fulfillment==='pickup'?'Reliable — San Antonio':dist,
-    tech:document.getElementById('ao-tech')?.value||'',
-    priority:document.getElementById('ao-pri').value,
-    status:fulfillment==='pickup'?(pickupRun&&pickupRun!=='early'?'pickup_pending':'pickup_pending'):'pending',
-    type:addOrderType,
-    addedDate:today(),
-    fulfillment,
-    availStatus:avail,
-    pickupRun:fulfillment==='pickup'?pickupRun:null,
-    pickupType:fulfillment==='pickup'?pickupType:null,
-    pickupConfirmed:false,
-    backorderETA:backorderETA,
-    jobNum,
-    trackingNum:'',
-  };
-  D.orders.push(order);
-  // start return clock if shipped and ordered
-  if(fulfillment==='shipped'){
-    D.returns.push({id:Date.now()+1,partNum:num,desc:order.desc,brand:order.brand,qty:order.qty,distributor:order.distributor,orderedDate:today(),status:'pending'});
-    save('returns');
-  }
-  save('orders');updateBadges();renderOrders();closeAddOrder();
-  if(avail==='backordered'||avail==='backordered_eta'){
-    showToast(`⚠ ${num} is backordered — customer communication needed.`);
-  } else {
-    showToast('Part added to order list.');
-  }
-  ['ao-num','ao-desc','ao-brand','ao-jobnum'].forEach(id=>{const el=document.getElementById(id);if(el)el.value='';});
-}
+
+
 
 function exportOrders(type){
   const items=D.orders.filter(o=>o.type===type&&o.status==='pending');
@@ -3686,7 +3698,7 @@ function addPartsManually(){
   save('inventory');
   closeAddParts();
   renderInv();
-  showToast(`Added ${qty}× ${num} at $${cost.toFixed(2)}/unit to ${loc}.`);
+  showInventoryConfirmation(num, qty, cost, loc);
 }
 
 // ── Use parts with lot selection ───────────────────────
@@ -3809,6 +3821,134 @@ function openLotView(partNum, loc){
   document.body.insertAdjacentHTML('beforeend', content);
 }
 
+
+
+// ═══════════════════════════════════════════════════════
+// DIRECT ADD TO RETURNS
+// ═══════════════════════════════════════════════════════
+var addReturnType = 'triaged';
+
+function openAddReturn(type){
+  addReturnType = type;
+  const titleEl = document.getElementById('add-return-title');
+  const subEl = document.getElementById('add-return-subtitle');
+  const triagedFields = document.getElementById('ar-triaged-fields');
+  const immediateFields = document.getElementById('ar-immediate-fields');
+  if(titleEl) titleEl.textContent = type==='triaged' ? 'Add triaged part' : 'Add immediate return';
+  if(subEl) subEl.textContent = type==='triaged'
+    ? 'Part was ordered and received but not installed. Links to a job for tracking.'
+    : 'Part needs to go back to the vendor immediately — wrong part, declined repair, or duplicate order.';
+  if(triagedFields) triagedFields.style.display = type==='triaged' ? 'block' : 'none';
+  if(immediateFields) immediateFields.style.display = type==='immediate' ? 'block' : 'none';
+  // Default order date to today
+  const dateEl = document.getElementById('ar-ordered-date');
+  if(dateEl) dateEl.value = today();
+  const form = document.getElementById('add-return-form');
+  if(form){ form.style.display='block'; form.scrollIntoView({behavior:'smooth'}); }
+}
+
+function closeAddReturn(){
+  const form = document.getElementById('add-return-form');
+  if(form) form.style.display = 'none';
+  ['ar-num','ar-desc','ar-brand','ar-jobnum','ar-notes'].forEach(id=>{
+    const el=document.getElementById(id); if(el) el.value='';
+  });
+  const qty=document.getElementById('ar-qty'); if(qty) qty.value='1';
+}
+
+function saveAddReturn(){
+  const num = (document.getElementById('ar-num').value||'').trim();
+  if(!num){ showToast('Enter a part number.'); return; }
+  const dist = document.getElementById('ar-dist').value;
+  const orderedDate = document.getElementById('ar-ordered-date').value || today();
+  const entry = {
+    id: Date.now(),
+    partNum: num,
+    desc: document.getElementById('ar-desc').value||'',
+    brand: document.getElementById('ar-brand').value||'',
+    qty: parseInt(document.getElementById('ar-qty').value)||1,
+    distributor: dist,
+    orderedDate,
+    status: 'pending',
+    returnType: addReturnType,  // 'triaged' or 'immediate'
+    jobNum: document.getElementById('ar-jobnum').value||'',
+    notes: document.getElementById('ar-notes').value||'',
+    addedDate: today(),
+  };
+  D.returns.unshift(entry);
+  dbInsert('returns', entry);
+  save('returns');
+  updateBadges();
+  closeAddReturn();
+  renderReturns();
+  const msg = addReturnType==='immediate'
+    ? `${num} added as immediate return — contact ${dist}.`
+    : `${num} added as triaged part. 25-day window from ${fmtDate(orderedDate)}.`;
+  showToast(msg);
+}
+
+
+// ═══════════════════════════════════════════════════════
+// CONFIRMATION BANNERS
+// ═══════════════════════════════════════════════════════
+function showConfirmation(partNum, desc, qty, distributor, eta, listType){
+  // Remove any existing confirmation
+  const existing = document.getElementById('order-confirm-banner');
+  if(existing) existing.remove();
+
+  const banner = document.createElement('div');
+  banner.id = 'order-confirm-banner';
+  banner.style.cssText = 'position:fixed;top:70px;left:50%;transform:translateX(-50%);background:var(--panel);border:1.5px solid var(--green);border-radius:11px;padding:14px 18px;z-index:500;min-width:320px;max-width:480px;box-shadow:0 4px 24px rgba(0,0,0,.4);animation:slideDown .25s ease;';
+  banner.innerHTML = `
+    <div style="display:flex;align-items:flex-start;gap:12px;">
+      <div style="font-size:22px;flex-shrink:0;">✅</div>
+      <div style="flex:1;">
+        <div style="font-size:13px;font-weight:600;color:var(--green);margin-bottom:4px;">Part added to ${listType} order list</div>
+        <div style="font-family:var(--mono);font-size:14px;font-weight:600;color:var(--teal);margin-bottom:2px;">${partNum}</div>
+        ${desc?`<div style="font-size:12px;color:var(--muted);margin-bottom:6px;">${desc}</div>`:''}
+        <div style="display:flex;gap:12px;flex-wrap:wrap;font-size:12px;">
+          <span>Qty: <strong>${qty}</strong></span>
+          <span>Via: <strong>${distributor||'—'}</strong></span>
+          <span>ETA: <strong>${eta}</strong></span>
+        </div>
+      </div>
+      <button onclick="this.closest('#order-confirm-banner').remove()" style="background:none;border:none;color:var(--muted);cursor:pointer;font-size:18px;padding:0;flex-shrink:0;">✕</button>
+    </div>`;
+  document.body.appendChild(banner);
+  // Auto-dismiss after 5 seconds
+  setTimeout(() => { if(banner.parentNode) banner.remove(); }, 5000);
+}
+
+function showInventoryConfirmation(partNum, qty, cost, loc){
+  const existing = document.getElementById('inv-confirm-banner');
+  if(existing) existing.remove();
+
+  const banner = document.createElement('div');
+  banner.id = 'inv-confirm-banner';
+  banner.style.cssText = 'position:fixed;top:70px;left:50%;transform:translateX(-50%);background:var(--panel);border:1.5px solid var(--teal);border-radius:11px;padding:14px 18px;z-index:500;min-width:300px;max-width:440px;box-shadow:0 4px 24px rgba(0,0,0,.4);animation:slideDown .25s ease;';
+  banner.innerHTML = `
+    <div style="display:flex;align-items:flex-start;gap:12px;">
+      <div style="font-size:22px;flex-shrink:0;">📦</div>
+      <div style="flex:1;">
+        <div style="font-size:13px;font-weight:600;color:var(--teal);margin-bottom:4px;">Parts added to inventory</div>
+        <div style="font-family:var(--mono);font-size:14px;font-weight:600;margin-bottom:4px;">${partNum}</div>
+        <div style="font-size:12px;color:var(--muted);">${qty} unit${qty!==1?'s':''} at $${cost.toFixed(2)}/unit → ${loc}</div>
+        <div style="font-size:11px;color:var(--muted);margin-top:3px;">Lot created · cost basis: $${cost.toFixed(2)}</div>
+      </div>
+      <button onclick="this.closest('#inv-confirm-banner').remove()" style="background:none;border:none;color:var(--muted);cursor:pointer;font-size:18px;padding:0;flex-shrink:0;">✕</button>
+    </div>`;
+  document.body.appendChild(banner);
+  setTimeout(() => { if(banner.parentNode) banner.remove(); }, 5000);
+}
+
+
+
+function setSyncStatus(ok){
+  const el = document.getElementById('sync-status');
+  if(!el) return;
+  if(ok){ el.textContent='● Synced'; el.style.color='var(--green)'; }
+  else{ el.textContent='● Local only'; el.style.color='var(--amber)'; }
+}
 
 // drag-drop on scan box
 const scanDrop=document.getElementById('scan-drop');
