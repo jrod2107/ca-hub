@@ -813,8 +813,56 @@ tr:hover td{background:rgba(0,201,177,.03);}
     <div class="card"><div class="card-label">Out of stock</div><div class="card-value" style="color:var(--red);" id="inv-zero">0</div></div>
     <div class="card"><div class="card-label">Total units</div><div class="card-value" id="inv-units">0</div></div>
   </div>
+  <!-- Manual Add Parts Form -->
+  <div class="card" id="add-parts-form" style="display:none;margin-bottom:16px;">
+    <div class="card-label" style="margin-bottom:12px;">Add parts to inventory</div>
+    <div class="frow">
+      <div class="fw"><label class="lbl">Part # <span style="color:var(--red);">*</span></label><input type="text" id="ap-num" style="font-family:var(--mono);" placeholder="OEM part number"></div>
+      <div class="fw"><label class="lbl">Description</label><input type="text" id="ap-desc" placeholder="e.g. Evap fan motor"></div>
+      <div class="fw"><label class="lbl">Brand / fits</label><input type="text" id="ap-brand" placeholder="e.g. True GDM-23"></div>
+    </div>
+    <div class="frow">
+      <div class="fw"><label class="lbl">Category</label>
+        <select id="ap-cat">
+          <option value="">Select…</option>
+          <option>Control board</option><option>Motor</option><option>Pump</option>
+          <option>Valve</option><option>Thermostat</option><option>Heating element</option>
+          <option>Sensor</option><option>Capacitor</option><option>Igniter</option>
+          <option>Door gasket</option><option>Relay</option><option>Wiring harness</option>
+          <option>Fan blade</option><option>Compressor</option><option>Other</option>
+        </select>
+      </div>
+      <div class="fw"><label class="lbl">Location <span style="color:var(--red);">*</span></label>
+        <select id="ap-loc"></select>
+      </div>
+      <div style="width:90px;"><label class="lbl">Qty <span style="color:var(--red);">*</span></label><input type="number" id="ap-qty" value="1" min="1"></div>
+      <div class="fw"><label class="lbl">Purchase price / unit <span style="color:var(--red);">*</span></label><input type="number" id="ap-cost" placeholder="0.00" min="0" step="0.01"></div>
+      <div class="fw"><label class="lbl">Distributor</label><input type="text" id="ap-dist" placeholder="e.g. PartsTown"></div>
+    </div>
+    <div class="arow">
+      <button class="btn btn-p btn-sm" onclick="addPartsManually()">Add to inventory</button>
+      <button class="btn btn-m btn-sm" onclick="closeAddParts()">Cancel</button>
+    </div>
+  </div>
+
+  <!-- Use Parts Form (LIFO pull) -->
+  <div class="card" id="use-parts-form" style="display:none;margin-bottom:16px;border-color:var(--amber);">
+    <div class="card-label" style="margin-bottom:4px;">Use parts from inventory</div>
+    <div style="font-size:11px;color:var(--muted);margin-bottom:12px;" id="use-parts-title">Select lot and quantity to use</div>
+    <div id="use-parts-lots" style="margin-bottom:12px;"></div>
+    <div class="frow">
+      <div style="width:90px;"><label class="lbl">Qty to use</label><input type="number" id="use-qty" value="1" min="1"></div>
+      <div class="fw"><label class="lbl">Job # (optional)</label><input type="text" id="use-jobnum" placeholder="Links to job record"></div>
+    </div>
+    <div class="arow">
+      <button class="btn btn-a btn-sm" onclick="confirmUseParts()">Confirm use</button>
+      <button class="btn btn-m btn-sm" onclick="closeUseParts()">Cancel</button>
+    </div>
+  </div>
+
   <div class="frow" style="margin-bottom:14px;">
-    <input type="search" id="inv-search" placeholder="Search part #, description, brand…" oninput="renderInv()" style="max-width:320px;">
+    <button class="btn btn-p btn-sm" onclick="openAddParts()">+ Add parts</button>
+    <input type="search" id="inv-search" placeholder="Search part #, description, brand…" oninput="renderInv()" style="max-width:260px;">
     <select id="inv-loc-filter" onchange="renderInv()" style="width:auto;"><option value="">All locations</option></select>
     <button class="btn btn-g btn-sm" onclick="toggleOOS()" id="oos-btn">🔴 Out of stock</button>
     <button class="btn btn-g btn-sm" onclick="exportInvCSV()">⬇ Export</button>
@@ -1959,8 +2007,11 @@ function addToInvFromScan(){
   const existing=D.inventory.find(p=>p.partNum.toLowerCase()===num.toLowerCase()&&p.loc===loc);
   const qty=parseInt(document.getElementById('sr-qty').value)||1;
   if(existing){existing.qty+=qty;existing.lastUpdated=today();}
-  else{D.inventory.push({id:Date.now(),partNum:num,desc:currentScan?.description||'',brand:currentScan?.brand||'',cat:currentScan?.category||'',qty,loc,distributor:currentScan?.distributor_hint||'',addedDate:today(),lastUpdated:today()});}
-  dbInsert('inventory', D.inventory[0]);
+  else{const np={id:Date.now(),partNum:num,desc:currentScan?.description||'',brand:currentScan?.brand||'',cat:currentScan?.category||'',qty,loc,distributor:currentScan?.distributor_hint||'',addedDate:today(),lastUpdated:today()};D.inventory.push(np);dbInsert('inventory', np);}
+  // Prompt for purchase price to create lot
+  const costStr = prompt('Purchase price per unit for ' + num + '? (Enter 0 if unknown)');
+  const costVal = parseFloat(costStr||'0');
+  if(costVal > 0) addLot(num, loc, qty, costVal, currentScan?.distributor_hint||'');
   save('inventory');clearScan();showToast(`${num} added to inventory at ${loc}.`);checkReorderTriggers();
 }
 
@@ -2743,18 +2794,26 @@ function renderInv(){
   const div=document.getElementById('inv-table');
   if(!parts.length){div.innerHTML=`<div style="text-align:center;padding:32px;color:var(--muted);font-size:13px;">${D.inventory.length?'No results.':'No parts yet — scan a part to build your inventory.'}</div>`;return;}
 
-  let html=`<div class="tbl-wrap"><table><thead><tr><th>Part #</th><th>Description</th><th>Brand</th><th>Category</th><th>Location</th><th>Qty</th><th>Updated</th><th>Transfer</th></tr></thead><tbody>`;
+  let html=`<div class="tbl-wrap"><table><thead><tr><th>Part #</th><th>Description</th><th>Brand</th><th>Category</th><th>Location</th><th>Qty / Cost basis</th><th>Actions</th><th>Updated</th><th>Transfer</th></tr></thead><tbody>`;
   parts.forEach(p=>{
+    // Get lots for this part number (LIFO order - newest/highest price first)
+    const lots = getLotsForPart(p.partNum, p.loc);
+    const currentLot = lots[0]; // LIFO = first lot = most recently received
+    const costBasis = currentLot ? '$'+currentLot.cost.toFixed(2) : '—';
+    const lotCount = lots.length;
     html+=`<tr>
       <td class="mono">${p.partNum||'—'}</td>
       <td>${p.desc||'—'}</td><td>${p.brand||'—'}</td><td>${p.cat||'—'}</td>
       <td><span class="loc-chip">${p.loc||'—'}</span></td>
       <td>
         <div style="display:flex;align-items:center;gap:7px;">
-          <button onclick="adjInv('${p.id}',-1)" style="background:var(--border);border:none;border-radius:4px;color:var(--text);width:22px;height:22px;cursor:pointer;font-size:14px;">−</button>
           <span style="font-family:var(--mono);font-weight:600;color:${p.qty===0?'var(--red)':'var(--text)'};">${p.qty}</span>
-          <button onclick="adjInv('${p.id}',1)" style="background:var(--border);border:none;border-radius:4px;color:var(--text);width:22px;height:22px;cursor:pointer;font-size:14px;">+</button>
         </div>
+        ${lotCount>0?`<div style="font-size:10px;color:var(--muted);margin-top:2px;">${lotCount} lot${lotCount!==1?'s':''} · current: ${costBasis}</div>`:''}
+      </td>
+      <td>
+        ${lotCount>0?`<button class="btn btn-g btn-sm" onclick="openUseParts(${p.id},'${p.partNum}','${p.loc}')">Use</button>`:`<button class="btn btn-g btn-sm" onclick="adjInv(${p.id},-1)">−1</button>`}
+        <button class="btn btn-g btn-sm" style="margin-left:4px;" onclick="openLotView('${p.partNum}','${p.loc}')">Lots</button>
       </td>
       <td style="font-size:11px;color:var(--muted);">${p.lastUpdated||'—'}</td>
       <td>
@@ -3510,6 +3569,244 @@ function flagForManager(jobId){
 function bookReturnVisit(jobId){
   var job = D.jobs.find(function(j){return j.id==jobId;});
   showToast('Job #'+(job&&job.jobNum?job.jobNum:'')+' — schedule return visit in Housecall Pro.');
+}
+
+
+
+// ═══════════════════════════════════════════════════════
+// LOT-BASED INVENTORY (LIFO — highest/newest price first)
+// ═══════════════════════════════════════════════════════
+// Lots stored separately from inventory items
+// Each lot: { id, partNum, loc, qty, cost, receivedDate, distributor, remaining }
+
+var D_lots = JSON.parse(localStorage.getItem('ca_lots') || '[]');
+function saveLots(){ localStorage.setItem('ca_lots', JSON.stringify(D_lots)); }
+
+function getLotsForPart(partNum, loc){
+  if(!partNum) return [];
+  // LIFO: sort by receivedDate descending (newest first = highest price first per your preference)
+  return D_lots
+    .filter(l => l.partNum === partNum && l.loc === loc && l.remaining > 0)
+    .sort((a,b) => new Date(b.receivedDate) - new Date(a.receivedDate));
+}
+
+function getAllLotsForPart(partNum, loc){
+  return D_lots
+    .filter(l => l.partNum === partNum && l.loc === loc)
+    .sort((a,b) => new Date(b.receivedDate) - new Date(a.receivedDate));
+}
+
+function addLot(partNum, loc, qty, cost, distributor){
+  const lot = {
+    id: Date.now(),
+    partNum,
+    loc,
+    qty: parseInt(qty),
+    remaining: parseInt(qty),
+    cost: parseFloat(cost),
+    receivedDate: today(),
+    distributor: distributor || '',
+  };
+  D_lots.push(lot);
+  saveLots();
+  return lot;
+}
+
+function useLotLIFO(partNum, loc, qtyToUse){
+  // Pull from newest (highest price) lots first
+  const lots = getLotsForPart(partNum, loc);
+  let remaining = qtyToUse;
+  const used = [];
+  for(const lot of lots){
+    if(remaining <= 0) break;
+    const take = Math.min(lot.remaining, remaining);
+    lot.remaining -= take;
+    remaining -= take;
+    used.push({ lotId: lot.id, qty: take, cost: lot.cost });
+  }
+  saveLots();
+  return used; // returns what was pulled and at what cost
+}
+
+function useLotManual(lotId, qtyToUse){
+  const lot = D_lots.find(l => l.id == lotId);
+  if(!lot) return null;
+  const take = Math.min(lot.remaining, parseInt(qtyToUse));
+  lot.remaining -= take;
+  saveLots();
+  return { lotId: lot.id, qty: take, cost: lot.cost };
+}
+
+// ── Manual add parts ───────────────────────────────────
+var usePartsTargetId = null;
+var usePartsPartNum = null;
+var usePartsLoc = null;
+
+function openAddParts(){
+  populateLocSelect('ap-loc');
+  document.getElementById('add-parts-form').style.display='block';
+  document.getElementById('add-parts-form').scrollIntoView({behavior:'smooth'});
+}
+function closeAddParts(){
+  document.getElementById('add-parts-form').style.display='none';
+  ['ap-num','ap-desc','ap-brand','ap-cost','ap-dist'].forEach(id=>{
+    const el=document.getElementById(id);if(el)el.value='';
+  });
+  const qty=document.getElementById('ap-qty');if(qty)qty.value='1';
+}
+
+function addPartsManually(){
+  const num = (document.getElementById('ap-num').value||'').trim();
+  const qty = parseInt(document.getElementById('ap-qty').value)||1;
+  const cost = parseFloat(document.getElementById('ap-cost').value||0);
+  const loc = document.getElementById('ap-loc').value;
+  if(!num){ showToast('Enter a part number.'); return; }
+  if(!loc){ showToast('Select a location.'); return; }
+  if(!cost||cost<=0){ showToast('Enter the purchase price per unit.'); return; }
+
+  const desc = document.getElementById('ap-desc').value||'';
+  const brand = document.getElementById('ap-brand').value||'';
+  const cat = document.getElementById('ap-cat').value||'';
+  const dist = document.getElementById('ap-dist').value||'';
+
+  // Add or update inventory item
+  const existing = D.inventory.find(p=>p.partNum.toLowerCase()===num.toLowerCase()&&p.loc===loc);
+  if(existing){
+    existing.qty += qty;
+    existing.lastUpdated = today();
+  } else {
+    const newPart = {id:Date.now(),partNum:num,desc,brand,cat,qty,loc,distributor:dist,addedDate:today(),lastUpdated:today()};
+    D.inventory.push(newPart);
+    dbInsert('inventory', newPart);
+  }
+
+  // Create lot record
+  addLot(num, loc, qty, cost, dist);
+
+  save('inventory');
+  closeAddParts();
+  renderInv();
+  showToast(`Added ${qty}× ${num} at $${cost.toFixed(2)}/unit to ${loc}.`);
+}
+
+// ── Use parts with lot selection ───────────────────────
+function openUseParts(partId, partNum, loc){
+  usePartsTargetId = partId;
+  usePartsPartNum = partNum;
+  usePartsLoc = loc;
+
+  const part = D.inventory.find(p=>p.id==partId);
+  const title = document.getElementById('use-parts-title');
+  if(title && part) title.textContent = `${part.partNum} — ${part.desc||''} @ ${loc}`;
+
+  // Show available lots LIFO order
+  const lots = getLotsForPart(partNum, loc);
+  const lotsDiv = document.getElementById('use-parts-lots');
+  if(!lots.length){
+    lotsDiv.innerHTML = '<div style="font-size:12px;color:var(--muted);">No lots with remaining stock — add parts first.</div>';
+  } else {
+    lotsDiv.innerHTML = `
+      <div style="font-size:11px;font-weight:600;color:var(--muted);margin-bottom:6px;text-transform:uppercase;letter-spacing:.07em;">Available lots (LIFO — newest first)</div>
+      ${lots.map((l,i) => `
+        <div style="display:flex;align-items:center;gap:10px;padding:7px 10px;background:${i===0?'rgba(0,201,177,.06)':'var(--panel)'};border-radius:7px;margin-bottom:5px;border:1px solid ${i===0?'var(--teal-d)':'var(--border)'};">
+          <input type="radio" name="lot-select" value="${l.id}" ${i===0?'checked':''} style="width:16px;height:16px;">
+          <div style="flex:1;">
+            <div style="font-size:12px;font-weight:600;">$${l.cost.toFixed(2)}/unit ${i===0?'<span class="badge b-teal" style="font-size:9px;">Current (LIFO)</span>':''}</div>
+            <div style="font-size:11px;color:var(--muted);">Received ${fmtDate(l.receivedDate)} · ${l.remaining} remaining of ${l.qty}</div>
+          </div>
+          <div style="font-family:var(--mono);font-size:13px;font-weight:600;color:var(--teal);">${l.remaining} left</div>
+        </div>`).join('')}
+      <div style="margin-top:8px;">
+        <label style="display:flex;align-items:center;gap:7px;font-size:12px;cursor:pointer;">
+          <input type="radio" name="lot-select" value="auto"> Use LIFO automatically (newest lot first)
+        </label>
+      </div>`;
+  }
+
+  document.getElementById('use-parts-form').style.display='block';
+  document.getElementById('use-parts-form').scrollIntoView({behavior:'smooth'});
+}
+
+function closeUseParts(){
+  document.getElementById('use-parts-form').style.display='none';
+  usePartsTargetId=null; usePartsPartNum=null; usePartsLoc=null;
+  const qtyEl=document.getElementById('use-qty');if(qtyEl)qtyEl.value='1';
+  const jnEl=document.getElementById('use-jobnum');if(jnEl)jnEl.value='';
+}
+
+function confirmUseParts(){
+  if(!usePartsTargetId) return;
+  const qtyToUse = parseInt(document.getElementById('use-qty').value)||1;
+  const jobNum = (document.getElementById('use-jobnum').value||'').trim();
+  const selected = document.querySelector('input[name="lot-select"]:checked');
+  const lotChoice = selected ? selected.value : 'auto';
+
+  let used;
+  if(lotChoice==='auto' || !lotChoice){
+    used = useLotLIFO(usePartsPartNum, usePartsLoc, qtyToUse);
+  } else {
+    const result = useLotManual(parseInt(lotChoice), qtyToUse);
+    used = result ? [result] : [];
+  }
+
+  // Decrement inventory
+  const part = D.inventory.find(p=>p.id==usePartsTargetId);
+  if(part){
+    part.qty = Math.max(0, part.qty - qtyToUse);
+    part.lastUpdated = today();
+    dbUpdate('inventory', part.id, {qty:part.qty, lastUpdated:part.lastUpdated});
+    save('inventory');
+    checkReorderTriggers(part);
+  }
+
+  // Log the cost basis used
+  if(used.length){
+    const avgCost = used.reduce((s,u)=>s+u.cost*u.qty,0) / used.reduce((s,u)=>s+u.qty,0);
+    showToast(`Used ${qtyToUse}× ${usePartsPartNum} at avg cost $${avgCost.toFixed(2)}/unit.${jobNum?' Linked to job #'+jobNum:''}`);
+  }
+
+  closeUseParts();
+  renderInv();
+}
+
+// ── Lot view modal ─────────────────────────────────────
+function openLotView(partNum, loc){
+  const lots = getAllLotsForPart(partNum, loc);
+  const total = lots.reduce((s,l)=>s+l.remaining,0);
+  const currentCost = lots.find(l=>l.remaining>0)?.cost;
+
+  if(!lots.length){ showToast('No lot history for this part.'); return; }
+
+  const content = `
+    <div style="position:fixed;inset:0;background:rgba(0,0,0,.7);z-index:300;display:flex;align-items:center;justify-content:center;padding:20px;" onclick="if(event.target===this)this.remove()">
+      <div style="background:var(--panel);border:1px solid var(--border);border-radius:13px;padding:20px;width:95%;max-width:560px;max-height:80vh;overflow-y:auto;">
+        <div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:14px;">
+          <div>
+            <div style="font-family:var(--mono);font-size:16px;font-weight:600;color:var(--teal);">${partNum}</div>
+            <div style="font-size:11px;color:var(--muted);">${loc} · ${total} units on hand${currentCost?` · Current cost basis: $${currentCost.toFixed(2)}`:''}
+            </div>
+          </div>
+          <button onclick="this.closest('[style*=fixed]').remove()" style="background:none;border:none;color:var(--muted);font-size:20px;cursor:pointer;">✕</button>
+        </div>
+        <div style="font-size:10px;font-weight:600;letter-spacing:.09em;text-transform:uppercase;color:var(--muted);margin-bottom:8px;">Lot history (LIFO — newest first)</div>
+        ${lots.map((l,i) => `
+          <div style="padding:10px 12px;background:${i===0&&l.remaining>0?'rgba(0,201,177,.06)':'var(--card)'};border:1px solid ${i===0&&l.remaining>0?'var(--teal-d)':'var(--border)'};border-radius:8px;margin-bottom:7px;">
+            <div style="display:flex;justify-content:space-between;align-items:flex-start;">
+              <div>
+                <div style="font-size:13px;font-weight:600;">$${l.cost.toFixed(2)}/unit ${i===0&&l.remaining>0?'<span class="badge b-teal" style="font-size:9px;">LIFO current</span>':''}</div>
+                <div style="font-size:11px;color:var(--muted);margin-top:2px;">Received ${fmtDate(l.receivedDate)}${l.distributor?' · '+l.distributor:''}</div>
+              </div>
+              <div style="text-align:right;">
+                <div style="font-family:var(--mono);font-size:13px;color:${l.remaining===0?'var(--muted)':'var(--text)'};">${l.remaining} / ${l.qty}</div>
+                <div style="font-size:10px;color:var(--muted);">remaining / received</div>
+              </div>
+            </div>
+            ${l.remaining===0?'<div style="font-size:10px;color:var(--muted);margin-top:4px;">Depleted</div>':''}
+          </div>`).join('')}
+      </div>
+    </div>`;
+
+  document.body.insertAdjacentHTML('beforeend', content);
 }
 
 
