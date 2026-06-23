@@ -404,6 +404,7 @@ tr:hover td{background:rgba(0,201,177,.03);}
   <div class="nav-group">Records</div>
   <div class="nav-trace">
     <button class="ni" data-page="joblog"><div class="ni-dot"></div><span class="ni-icon">📒</span>Job Log</button>
+    <button class="ni" data-page="masterlog"><div class="ni-dot"></div><span class="ni-icon">🗂️</span>Master Log</button>
     <button class="ni" data-page="followup"><div class="ni-dot"></div><span class="ni-icon">📞</span>Follow-ups<span class="ni-badge" id="badge-followup" style="display:none;">0</span></button>
     <button class="ni" data-page="kb"><div class="ni-dot"></div><span class="ni-icon">📚</span>Knowledge Base</button>
   </div>
@@ -643,9 +644,47 @@ tr:hover td{background:rgba(0,201,177,.03);}
     <div style="display:flex;gap:9px;justify-content:center;flex-wrap:wrap;">
       <button class="btn btn-p" onclick="document.getElementById('scan-file').click()">⬆ Upload photo</button>
       <button class="btn btn-g" onclick="openCam()">📷 Camera</button>
+      <button class="btn btn-m" onclick="openManualPartEntry()">✏ Enter manually</button>
     </div>
     <input type="file" id="scan-file" accept="image/*" style="display:none" onchange="handleScan(this.files[0])">
   </div>
+  <!-- Manual part entry form -->
+  <div class="card" id="manual-part-form" style="display:none;margin-bottom:14px;">
+    <div class="card-label" style="margin-bottom:10px;">Enter part details manually</div>
+    <div class="frow">
+      <div class="fw"><label class="lbl">Part # <span style="color:var(--red);">*</span></label><input type="text" id="mp-num" style="font-family:var(--mono);" placeholder="OEM part number"></div>
+      <div class="fw"><label class="lbl">Description</label><input type="text" id="mp-desc" placeholder="e.g. Evap fan motor"></div>
+    </div>
+    <div class="frow">
+      <div class="fw"><label class="lbl">Brand / fits</label><input type="text" id="mp-brand" placeholder="e.g. True GDM-23"></div>
+      <div class="fw"><label class="lbl">Category</label>
+        <select id="mp-cat">
+          <option value="">Select…</option>
+          <option>Control board</option><option>Motor</option><option>Pump</option>
+          <option>Valve</option><option>Thermostat</option><option>Heating element</option>
+          <option>Sensor</option><option>Capacitor</option><option>Igniter</option>
+          <option>Door gasket</option><option>Relay</option><option>Wiring harness</option>
+          <option>Fan blade</option><option>Compressor</option><option>Other</option>
+        </select>
+      </div>
+      <div style="width:70px;"><label class="lbl">Qty</label><input type="number" id="mp-qty" value="1" min="1"></div>
+    </div>
+    <div class="frow">
+      <div class="fw"><label class="lbl">Distributor</label>
+        <select id="mp-dist">
+          <option>Reliable — San Antonio</option><option>Reliable — Mesquite</option>
+          <option>PartsTown</option><option>Marcone</option><option>Encompass</option>
+          <option>APC</option><option>Other</option>
+        </select>
+      </div>
+    </div>
+    <div class="arow">
+      <button class="btn btn-p btn-sm" onclick="addToInvFromManual()">📦 Add to inventory</button>
+      <button class="btn btn-a btn-sm" onclick="addToOrderFromManual()">📋 Add to order list</button>
+      <button class="btn btn-m btn-sm" onclick="closeManualPartEntry()">Cancel</button>
+    </div>
+  </div>
+
   <div id="scan-preview-wrap" style="display:none;margin-bottom:14px;border-radius:9px;overflow:hidden;border:1px solid var(--border);position:relative;">
     <img id="scan-preview" style="width:100%;max-height:240px;object-fit:contain;background:#080f18;display:block;">
     <button onclick="clearScan()" style="position:absolute;top:7px;right:7px;background:rgba(0,0,0,.7);border:none;border-radius:50%;width:26px;height:26px;color:#fff;font-size:14px;cursor:pointer;">✕</button>
@@ -696,113 +735,109 @@ tr:hover td{background:rgba(0,201,177,.03);}
 <!-- ══ ORDER LIST ══ -->
 <div class="page" id="page-orders">
   <div class="pg-title">Order List</div>
-  <div class="pg-sub">Daily urgent orders and the weekly stock reorder queue.</div>
+  <div class="pg-sub">All parts on order. Add a part to get started.</div>
+  <div id="orders-debug" style="background:rgba(245,166,35,.1);border:1px solid rgba(245,166,35,.3);border-radius:7px;padding:8px 12px;font-size:11px;font-family:var(--mono);color:var(--amber);margin-bottom:12px;display:none;"></div>
 
-  <!-- Daily orders -->
-  <div style="display:flex;align-items:center;justify-content:space-between;flex-wrap:wrap;gap:10px;margin-bottom:10px;">
-    <div style="font-family:var(--cond);font-size:17px;font-weight:600;color:var(--coral);">Daily — Urgent Orders</div>
-    <div style="display:flex;gap:8px;flex-wrap:wrap;">
-      <button class="btn btn-coral btn-sm" onclick="openAddOrder('daily')">+ Add part</button>
-      <button class="btn btn-g btn-sm" onclick="exportOrders('daily')">⬇ Export</button>
-    </div>
-  </div>
-  <div id="daily-order-list" style="margin-bottom:20px;"></div>
-
-  <!-- Weekly orders -->
-  <div style="display:flex;align-items:center;justify-content:space-between;flex-wrap:wrap;gap:10px;margin-bottom:10px;">
-    <div style="font-family:var(--cond);font-size:17px;font-weight:600;color:var(--blue);">Weekly — Stock Reorder</div>
-    <div style="display:flex;gap:8px;flex-wrap:wrap;">
-      <button class="btn btn-m btn-sm" onclick="openAddOrder('weekly')">+ Add suggestion</button>
-      <button class="btn btn-p btn-sm" onclick="confirmWeekly()">✔ Manager confirm all</button>
-      <button class="btn btn-g btn-sm" onclick="exportOrders('weekly')">⬇ Export</button>
-    </div>
-  </div>
-  <div class="alert alert-blue" style="margin-bottom:10px;"><span class="alert-icon">ℹ</span><span>Weekly stock orders require manager confirmation before parts are ordered.</span></div>
-  <div id="weekly-order-list"></div>
-
-  <!-- Add order form -->
-  <div class="card" id="add-order-form" style="display:none;margin-top:16px;">
-    <div class="card-label" style="margin-bottom:10px;" id="add-order-title">Add part to order list</div>
+  <!-- ADD PART FORM — always visible at top -->
+  <div class="card" style="margin-bottom:20px;">
+    <div style="font-family:var(--cond);font-size:16px;font-weight:600;margin-bottom:12px;color:var(--teal);">+ Add part to order list</div>
+    <div id="ao-dup-warning" style="display:none;background:rgba(245,166,35,.12);border:1px solid rgba(245,166,35,.4);border-radius:7px;padding:9px 12px;font-size:12px;color:var(--amber);margin-bottom:12px;"></div>
     <div class="frow">
-      <div class="fw"><label class="lbl">Part #</label><input type="text" id="ao-num" style="font-family:var(--mono);"></div>
-      <div class="fw"><label class="lbl">Description</label><input type="text" id="ao-desc"></div>
+      <div class="fw"><label class="lbl">Part # *</label><input type="text" id="ao-num" style="font-family:var(--mono);font-size:14px;" placeholder="OEM part number" oninput="checkDuplicateLive()"></div>
+      <div class="fw"><label class="lbl">Description</label><input type="text" id="ao-desc" placeholder="e.g. Evap fan motor"></div>
       <div style="width:110px;"><label class="lbl">Job #</label><input type="text" id="ao-jobnum" placeholder="e.g. 2847"></div>
     </div>
     <div class="frow">
       <div class="fw"><label class="lbl">Brand / unit</label><input type="text" id="ao-brand" placeholder="e.g. True GDM-23"></div>
       <div style="width:70px;"><label class="lbl">Qty</label><input type="number" id="ao-qty" value="1" min="1"></div>
-      <div class="fw"><label class="lbl">Serial / revision</label><input type="text" id="ao-serial" placeholder="Serial # or revision" style="font-family:var(--mono);font-size:11px;"></div>
-      <div class="fw"><label class="lbl">Priority</label><select id="ao-pri"><option value="normal">Normal</option><option value="urgent">Urgent</option></select></div>
-    </div>
-
-    <div class="frow" style="margin-bottom:6px;">
-      <div class="fw"><label class="lbl">Fulfillment method</label>
-        <select id="ao-fulfillment" onchange="toggleFulfillmentFields()">
-          <option value="shipped">Shipped — carrier delivery</option>
-          <option value="pickup">SA pickup — Reliable San Antonio</option>
-          <option value="vanstock">Van stock — already on truck</option>
-        </select>
-      </div>
-      <div class="fw"><label class="lbl">Availability status</label>
-        <select id="ao-avail">
-          <option value="unknown">Unknown — check MPH</option>
-          <option value="instock">In stock at vendor</option>
-          <option value="available_sa">Available at SA branch</option>
-          <option value="network_pull">Network pull (ordered for SA)</option>
-          <option value="backordered">Backordered — no ETA</option>
-          <option value="backordered_eta">Backordered — ETA known</option>
-        </select>
-      </div>
-    </div>
-
-    <!-- Shipped fields -->
-    <div id="shipped-fields" class="frow">
       <div class="fw"><label class="lbl">Distributor</label>
-        <select id="ao-dist"><option>Reliable — San Antonio</option><option>Reliable — Mesquite</option><option>PartsTown</option><option>Marcone</option><option>Encompass</option><option>APC</option><option>Other</option></select>
+        <select id="ao-dist">
+          <option>Reliable — San Antonio</option>
+          <option>Reliable — Mesquite</option>
+          <option>PartsTown</option>
+          <option>Marcone</option>
+          <option>Encompass</option>
+          <option>APC</option>
+          <option>Other</option>
+        </select>
       </div>
-      <div class="fw"><label class="lbl">Tech / job ref</label><input type="text" id="ao-tech"></div>
-    </div>
-
-    <!-- Pickup fields -->
-    <div id="pickup-fields" style="display:none;background:rgba(155,89,182,.08);border:1px solid rgba(155,89,182,.25);border-radius:8px;padding:12px;margin-bottom:12px;">
-      <div style="font-size:11px;font-weight:600;color:#9B59B6;margin-bottom:10px;">📍 SA pickup — Reliable Parts San Antonio</div>
-      <div class="frow" style="margin-bottom:0;">
-        <div class="fw"><label class="lbl">Pickup type</label>
-          <select id="ao-pickup-type">
-            <option value="shelf">On-shelf (available now)</option>
-            <option value="network">Network pull (ordered for pickup)</option>
-          </select>
-        </div>
-        <div class="fw"><label class="lbl">Target pickup run</label>
-          <select id="ao-pickup-run"></select>
-        </div>
+      <div class="fw"><label class="lbl">Priority</label>
+        <select id="ao-pri">
+          <option value="normal">Normal</option>
+          <option value="urgent">Urgent</option>
+        </select>
       </div>
-    </div>
-
-    <!-- Backorder fields -->
-    <div id="backorder-fields" style="display:none;background:rgba(232,69,90,.08);border:1px solid rgba(232,69,90,.25);border-radius:8px;padding:12px;margin-bottom:12px;">
-      <div style="font-size:11px;font-weight:600;color:var(--red);margin-bottom:8px;">⚠ Part is backordered — customer communication required</div>
-      <div class="frow" style="margin-bottom:8px;">
-        <div class="fw"><label class="lbl">Backorder ETA (if known)</label><input type="date" id="ao-backorder-eta"></div>
-      </div>
-      <div style="font-size:11px;color:var(--muted);background:var(--bg);border-radius:6px;padding:10px;">
-        <div style="font-weight:600;color:var(--text);margin-bottom:4px;">Customer talking point:</div>
-        "The part needed for your repair is currently on backorder with our supplier. We don't have a confirmed arrival date yet. Some customers prefer to wait — others choose not to move forward with the repair. Would you like us to hold your job and reach out the moment the part becomes available?"
+      <div class="fw"><label class="lbl">List</label>
+        <select id="ao-list-type">
+          <option value="daily">Daily — Urgent</option>
+          <option value="weekly">Weekly — Stock</option>
+        </select>
       </div>
     </div>
-
-    <!-- Conflict banner -->
-    <div id="ao-conflict-banner" style="display:none;" class="alert alert-red" style="margin-bottom:10px;">
-      <span class="alert-icon">⚠</span>
-      <div id="ao-conflict-text"></div>
+    <div class="frow">
+      <div class="fw"><label class="lbl">Serial / revision (optional)</label><input type="text" id="ao-serial" style="font-family:var(--mono);font-size:11px;" placeholder="Serial # or revision"></div>
+      <div class="fw"><label class="lbl">Tech / ref</label><input type="text" id="ao-tech" placeholder="Who requested this?"></div>
     </div>
-
-    <div class="arow">
-      <button class="btn btn-p btn-sm" onclick="saveOrderItem()">Add to list</button>
-      <button class="btn btn-g btn-sm" onclick="openMPHSearch()" id="ao-mph-btn">🔍 Check availability (MPH)</button>
-      <button class="btn btn-m btn-sm" onclick="closeAddOrder()">Cancel</button>
+    <div style="margin-bottom:12px;">
+      <label style="display:flex;align-items:center;gap:8px;font-size:12px;cursor:pointer;color:var(--text);">
+        <input type="checkbox" id="ao-triage" style="width:16px;height:16px;">
+        Triage part — ordered to confirm diagnosis, may not be installed
+      </label>
+    </div>
+    <div style="margin-top:4px;">
+      <button class="btn btn-p" onclick="saveOrderItem()" style="min-width:140px;">Add to order list</button>
     </div>
   </div>
+
+  <!-- DAILY ORDER LIST -->
+  <div style="display:flex;align-items:center;justify-content:space-between;flex-wrap:wrap;gap:10px;margin-bottom:10px;">
+    <div style="font-family:var(--cond);font-size:18px;font-weight:600;color:var(--coral);">Daily — Urgent Orders <span id="daily-count" style="font-size:13px;color:var(--muted);font-family:var(--body);font-weight:400;"></span></div>
+    <button class="btn btn-g btn-sm" onclick="exportOrders('daily')">⬇ Export</button>
+  </div>
+  <div id="daily-order-list" style="margin-bottom:24px;">
+    <div style="background:var(--card);border:1px dashed var(--border);border-radius:9px;padding:20px;text-align:center;color:var(--muted);font-size:13px;">No parts on the daily list yet. Add a part above.</div>
+  </div>
+
+  <!-- WEEKLY ORDER LIST -->
+  <div style="display:flex;align-items:center;justify-content:space-between;flex-wrap:wrap;gap:10px;margin-bottom:10px;">
+    <div style="font-family:var(--cond);font-size:18px;font-weight:600;color:var(--blue);">Weekly — Stock Reorder <span id="weekly-count" style="font-size:13px;color:var(--muted);font-family:var(--body);font-weight:400;"></span></div>
+    <div style="display:flex;gap:8px;">
+      <button class="btn btn-p btn-sm" onclick="confirmWeekly()">✔ Confirm all</button>
+      <button class="btn btn-g btn-sm" onclick="exportOrders('weekly')">⬇ Export</button>
+    </div>
+  </div>
+  <div class="alert alert-blue" style="margin-bottom:10px;"><span class="alert-icon">ℹ</span><span>Weekly stock orders require manager confirmation before parts are ordered.</span></div>
+  <div id="weekly-order-list">
+    <div style="background:var(--card);border:1px dashed var(--border);border-radius:9px;padding:20px;text-align:center;color:var(--muted);font-size:13px;">No parts on the weekly list yet.</div>
+  </div>
+</div>
+
+<!-- ══ MASTER LOG ══ -->
+<div class="page" id="page-masterlog">
+  <div class="pg-title">Master Log</div>
+  <div class="pg-sub">Every part ever tracked — searchable history that never gets deleted.</div>
+
+  <div class="frow" style="margin-bottom:14px;">
+    <input type="search" id="ml-search" placeholder="Search part #, job #, distributor, description…" oninput="renderMasterLog()" style="max-width:340px;">
+    <select id="ml-status-filter" onchange="renderMasterLog()" style="width:auto;">
+      <option value="">All statuses</option>
+      <option value="pending">Pending</option>
+      <option value="ordered">Ordered</option>
+      <option value="received">Received</option>
+      <option value="resolved">Resolved</option>
+    </select>
+    <select id="ml-resolution-filter" onchange="renderMasterLog()" style="width:auto;">
+      <option value="">All outcomes</option>
+      <option value="installed">Installed</option>
+      <option value="inventory">To inventory</option>
+      <option value="triage_return">Triage return</option>
+      <option value="urgent_return">Urgent return</option>
+    </select>
+    <button class="btn btn-g btn-sm" onclick="exportMasterLog()">⬇ Export</button>
+  </div>
+
+  <div id="ml-count" style="font-size:11px;color:var(--muted);margin-bottom:10px;"></div>
+  <div id="masterlog-list"></div>
 </div>
 
 <!-- ══ INVENTORY ══ -->
@@ -1194,6 +1229,280 @@ tr:hover td{background:rgba(0,201,177,.03);}
     </div>
   </div>
 
+  <!-- ── CATEGORY: Part Vendors ── -->
+  <div class="kb-category" id="kb-cat-vendors">
+    <div class="kb-cat-header" onclick="toggleKBCat('vendors')">
+      <div style="display:flex;align-items:center;gap:10px;">
+        <span style="font-size:18px;">🏪</span>
+        <div>
+          <div class="kb-cat-title">Part Vendors</div>
+          <div class="kb-cat-sub">Distributor contacts, strengths, return windows</div>
+        </div>
+      </div>
+      <span class="kb-chevron" id="kb-chev-vendors">▾</span>
+    </div>
+    <div class="kb-cat-body" id="kb-body-vendors">
+
+      <div class="kb-article" data-tags="reliable reliableparts san antonio fastest shipping 30 day return window vendor">
+        <div class="kb-article-header">
+          <div>
+            <div class="kb-article-title">Reliable Parts</div>
+            <div class="kb-article-meta"><span class="kb-tag">Reliable</span><span class="kb-tag">Fastest</span></div>
+          </div>
+        </div>
+        <div class="kb-contact-bar">
+          <span>📞 <strong>210-829-1772</strong></span>
+          <span style="margin-left:16px;">🌐 reliableparts.net</span>
+        </div>
+        <div class="kb-article-body">Fastest shipping if the part is available in San Antonio (next day). 30-day return window. First choice for most brands. Use reliable.com to look up parts for most brands.</div>
+      </div>
+
+      <div class="kb-article" data-tags="encompass samsung lg best pricing parts vendor">
+        <div class="kb-article-header">
+          <div>
+            <div class="kb-article-title">Encompass</div>
+            <div class="kb-article-meta"><span class="kb-tag">Encompass</span><span class="kb-tag">Samsung</span><span class="kb-tag">LG</span></div>
+          </div>
+        </div>
+        <div class="kb-contact-bar">
+          <span>🌐 encompass.com</span>
+        </div>
+        <div class="kb-article-body">Best pricing on Samsung &amp; LG parts. Strong relationships with both brands, so it&apos;s the best site to confirm part numbers for them. Also good for Bertazzoni. Tends to have the best prices on Samsung/LG. Sears Parts may have diagrams when Encompass doesn&apos;t.</div>
+      </div>
+
+      <div class="kb-article" data-tags="marcone dallas next day national vendor parts">
+        <div class="kb-article-header">
+          <div>
+            <div class="kb-article-title">Marcone</div>
+            <div class="kb-article-meta"><span class="kb-tag">Marcone</span><span class="kb-tag">National</span></div>
+          </div>
+        </div>
+        <div class="kb-contact-bar">
+          <span>📞 <strong>888-791-4456</strong></span>
+          <span style="margin-left:16px;">✉ southcs@marcone.com</span>
+        </div>
+        <div class="kb-article-body">Dallas location can get parts in next day. National distributor with broad catalog.</div>
+      </div>
+
+      <div class="kb-article" data-tags="appliance parts company austin local heath henry vet vendor">
+        <div class="kb-article-header">
+          <div>
+            <div class="kb-article-title">Appliance Parts Company (APC)</div>
+            <div class="kb-article-meta"><span class="kb-tag">APC</span><span class="kb-tag">Local — Austin</span></div>
+          </div>
+        </div>
+        <div class="kb-contact-bar">
+          <span>📞 <strong>512-655-2726</strong></span>
+          <span style="margin-left:16px;">🌐 appliancepartscompany.com</span>
+        </div>
+        <div class="kb-article-body">Local vendor in Austin. Heath is a vet and very knowledgeable — a good guy to deal with. Henry has been there a while.</div>
+      </div>
+
+      <div class="kb-article" data-tags="sears searspartsdirect samsung kenmore lg diagrams vendor">
+        <div class="kb-article-header">
+          <div>
+            <div class="kb-article-title">Sears Parts Direct</div>
+            <div class="kb-article-meta"><span class="kb-tag">Sears</span><span class="kb-tag">Diagrams</span></div>
+          </div>
+        </div>
+        <div class="kb-contact-bar">
+          <span>🌐 searspartsdirect.com</span>
+        </div>
+        <div class="kb-article-body">Useful for Samsung, Kenmore, and LG. Good for part diagrams when Encompass doesn&apos;t have them. For LG and Samsung, confirm on Encompass first. Sears Parts and sometimes Reliable will have Bosch diagrams.</div>
+      </div>
+
+      <div class="kb-article" data-tags="miele order through miele vendor german">
+        <div class="kb-article-header">
+          <div>
+            <div class="kb-article-title">Miele</div>
+            <div class="kb-article-meta"><span class="kb-tag">Miele</span></div>
+          </div>
+        </div>
+        <div class="kb-contact-bar">
+          <span>🌐 www4.miele.de/msd</span>
+        </div>
+        <div class="kb-article-body">Must order Miele parts through Miele directly.</div>
+      </div>
+    </div>
+  </div>
+
+  <!-- ── CATEGORY: Where to Look Up Parts ── -->
+  <div class="kb-category" id="kb-cat-lookup">
+    <div class="kb-cat-header" onclick="toggleKBCat('lookup')">
+      <div style="display:flex;align-items:center;gap:10px;">
+        <span style="font-size:18px;">🔎</span>
+        <div>
+          <div class="kb-cat-title">Where to Look Up Parts</div>
+          <div class="kb-cat-sub">Which site to use by brand</div>
+        </div>
+      </div>
+      <span class="kb-chevron" id="kb-chev-lookup">▾</span>
+    </div>
+    <div class="kb-cat-body" id="kb-body-lookup">
+      <div class="kb-article" data-tags="part lookup brand reliable encompass sears bosch samsung lg bertazzoni miele">
+        <div class="kb-article-header">
+          <div>
+            <div class="kb-article-title">Part Lookup by Brand</div>
+            <div class="kb-article-meta"><span class="kb-tag">Lookup</span><span class="kb-tag">By brand</span></div>
+          </div>
+        </div>
+        <div class="kb-rules-grid">
+          <div class="kb-rule kb-rule-ok"><div class="kb-rule-label">Most brands</div><div class="kb-rule-body">Use reliable.com.</div></div>
+          <div class="kb-rule kb-rule-ok"><div class="kb-rule-label">LG &amp; Samsung</div><div class="kb-rule-body">Encompass to confirm the part number (best relationships and pricing). Sears Parts for diagrams when Encompass doesn&apos;t have them.</div></div>
+          <div class="kb-rule kb-rule-ok"><div class="kb-rule-label">Bosch</div><div class="kb-rule-body">Sears Parts and sometimes Reliable will have diagrams.</div></div>
+          <div class="kb-rule kb-rule-ok"><div class="kb-rule-label">Bertazzoni</div><div class="kb-rule-body">Encompass.</div></div>
+          <div class="kb-rule kb-rule-ok"><div class="kb-rule-label">Miele</div><div class="kb-rule-body">Order through Miele directly at www4.miele.de/msd.</div></div>
+        </div>
+      </div>
+    </div>
+  </div>
+
+  <!-- ── CATEGORY: Techlines ── -->
+  <div class="kb-category" id="kb-cat-techlines">
+    <div class="kb-cat-header" onclick="toggleKBCat('techlines')">
+      <div style="display:flex;align-items:center;gap:10px;">
+        <span style="font-size:18px;">☎️</span>
+        <div>
+          <div class="kb-cat-title">Techlines</div>
+          <div class="kb-cat-sub">Manufacturer technical support numbers</div>
+        </div>
+      </div>
+      <span class="kb-chevron" id="kb-chev-techlines">▾</span>
+    </div>
+    <div class="kb-cat-body" id="kb-body-techlines">
+      <div class="kb-article" data-tags="techline vulcan whirlpool frigidaire speed queen thor hisense manitowoc subzero sub-zero wolf american range manufacturer support phone account company id 85930">
+        <div class="kb-article-header">
+          <div>
+            <div class="kb-article-title">Manufacturer Techlines</div>
+            <div class="kb-article-meta"><span class="kb-tag">Techline</span><span class="kb-tag">Support</span></div>
+          </div>
+        </div>
+        <div class="kb-contact-bar">
+          <span>Vulcan: <strong>1-800-814-2028</strong></span>
+          <span style="margin-left:16px;">Frigidaire: <strong>1-888-842-3660</strong></span>
+        </div>
+        <div class="kb-rules-grid">
+          <div class="kb-rule kb-rule-ok"><div class="kb-rule-label">Frigidaire</div><div class="kb-rule-body">1-888-842-3660 · Account / Company ID: <strong>85930</strong></div></div>
+          <div class="kb-rule kb-rule-ok"><div class="kb-rule-label">Speed Queen</div><div class="kb-rule-body">920-748-3121</div></div>
+          <div class="kb-rule kb-rule-ok"><div class="kb-rule-label">Thor</div><div class="kb-rule-body">888-870-4556</div></div>
+          <div class="kb-rule kb-rule-ok"><div class="kb-rule-label">Hisense</div><div class="kb-rule-body">770-904-9067</div></div>
+          <div class="kb-rule kb-rule-ok"><div class="kb-rule-label">Manitowoc</div><div class="kb-rule-body">800-247-4520</div></div>
+          <div class="kb-rule kb-rule-ok"><div class="kb-rule-label">Sub-Zero / Wolf</div><div class="kb-rule-body">800-222-8720</div></div>
+          <div class="kb-rule kb-rule-ok"><div class="kb-rule-label">Older Wolf Appliances</div><div class="kb-rule-body">502-778-2791</div></div>
+          <div class="kb-rule kb-rule-ok"><div class="kb-rule-label">American Range</div><div class="kb-rule-body">888-753-9898</div></div>
+          <div class="kb-rule kb-rule-ok"><div class="kb-rule-label">Vulcan</div><div class="kb-rule-body">1-800-814-2028</div></div>
+          <div class="kb-rule kb-rule-ok"><div class="kb-rule-label">Whirlpool Parts Dept</div><div class="kb-rule-body">1-800-952-2537 (choose Parts and Services)</div></div>
+        </div>
+        <div class="kb-article-body">More techlines to be added as collected.</div>
+      </div>
+    </div>
+  </div>
+
+  <!-- ── CATEGORY: Service Call Fees ── -->
+  <div class="kb-category" id="kb-cat-fees">
+    <div class="kb-cat-header" onclick="toggleKBCat('fees')">
+      <div style="display:flex;align-items:center;gap:10px;">
+        <span style="font-size:18px;">💵</span>
+        <div>
+          <div class="kb-cat-title">Service Call Fees</div>
+          <div class="kb-cat-sub">Diagnostic fees, multi-appliance, after-hours, scripts</div>
+        </div>
+      </div>
+      <span class="kb-chevron" id="kb-chev-fees">▾</span>
+    </div>
+    <div class="kb-cat-body" id="kb-body-fees">
+      <div class="kb-article" data-tags="service call fee diagnostic 125 65 multiple appliances after hours emergency script">
+        <div class="kb-article-header">
+          <div>
+            <div class="kb-article-title">Service Call Fee Structure</div>
+            <div class="kb-article-meta"><span class="kb-tag">Fees</span><span class="kb-tag">Script</span></div>
+          </div>
+        </div>
+        <div class="kb-rules-grid">
+          <div class="kb-rule kb-rule-ok"><div class="kb-rule-label">Standard service call</div><div class="kb-rule-body">$125 — covers the in-home diagnostic visit. Applied toward the total if the customer proceeds with the repair. Other areas vary.</div></div>
+          <div class="kb-rule kb-rule-ok"><div class="kb-rule-label">Multiple appliances</div><div class="kb-rule-body">$65 each for additional appliances on the same visit (instead of a separate service fee).</div></div>
+          <div class="kb-rule kb-rule-warn"><div class="kb-rule-label">After-hours / emergency</div><div class="kb-rule-body">Double the standard service fee.</div></div>
+        </div>
+        <div class="kb-callout">
+          <div class="kb-callout-label">📞 Script for customers</div>
+          &quot;This fee covers the in-home diagnostic. When you move forward with the repair, everything — including the initial visit and any return visits needed — is factored into your final total.&quot;
+        </div>
+        <div class="kb-callout" style="margin-top:8px;">
+          <div class="kb-callout-label">📞 Multi-appliance script</div>
+          &quot;While we&apos;re there, we can look at any other appliances you&apos;d like for just $65 each, instead of a separate service fee.&quot;
+        </div>
+      </div>
+    </div>
+  </div>
+
+  <!-- ── CATEGORY: Coverage Area ── -->
+  <div class="kb-category" id="kb-cat-coverage">
+    <div class="kb-cat-header" onclick="toggleKBCat('coverage')">
+      <div style="display:flex;align-items:center;gap:10px;">
+        <span style="font-size:18px;">🗺️</span>
+        <div>
+          <div class="kb-cat-title">Coverage Area &amp; Pricing by Zone</div>
+          <div class="kb-cat-sub">Service zip codes and fees by area</div>
+        </div>
+      </div>
+      <span class="kb-chevron" id="kb-chev-coverage">▾</span>
+    </div>
+    <div class="kb-cat-body" id="kb-body-coverage">
+      <div class="kb-article" data-tags="coverage area zip codes san marcos kyle buda new braunfels seguin dripping springs austin pricing zone">
+        <div class="kb-article-header">
+          <div>
+            <div class="kb-article-title">Service Area &amp; Fees by Zone</div>
+            <div class="kb-article-meta"><span class="kb-tag">Coverage</span><span class="kb-tag">Pricing</span></div>
+          </div>
+        </div>
+        <div class="kb-rules-grid">
+          <div class="kb-rule kb-rule-ok"><div class="kb-rule-label">$125 Zone</div><div class="kb-rule-body">San Marcos, Kyle, Buda, New Braunfels, Lockhart, Wimberley, Redwood, Martindale, Staples, Zorn, Geronimo, Maxwell, Uhland, Niederwald</div></div>
+          <div class="kb-rule kb-rule-warn"><div class="kb-rule-label">$145 Zone</div><div class="kb-rule-body">Luling, Seguin, Canyon Lake, McQueeney, Kingsbury, Driftwood</div></div>
+          <div class="kb-rule kb-rule-warn"><div class="kb-rule-label">$165 Zone</div><div class="kb-rule-body">Dripping Springs, South Austin, Driftwood, Manchaca</div></div>
+        </div>
+        <div class="kb-article-body" style="margin-top:10px;"><strong>Service zip codes:</strong> 78623, 78133, 78132, 78135, 78131, 78676, 78130, 78619, 78123, 78666, 78115, 78156, 78667, 78155, 78739, 78652, 78749, 78610, 78640, 78638, 78748, 78656, 78670, 78655, 78745, 78622, 78704, 73301, 78661, 78747, 78744, 78741, 78644, 78648</div>
+      </div>
+    </div>
+  </div>
+
+  <!-- ── CATEGORY: Special Order Processes ── -->
+  <div class="kb-category" id="kb-cat-special">
+    <div class="kb-cat-header" onclick="toggleKBCat('special')">
+      <div style="display:flex;align-items:center;gap:10px;">
+        <span style="font-size:18px;">⚙️</span>
+        <div>
+          <div class="kb-cat-title">Special Order Processes</div>
+          <div class="kb-cat-sub">Recalls, service pointers, brand-specific ordering</div>
+        </div>
+      </div>
+      <span class="kb-chevron" id="kb-chev-special">▾</span>
+    </div>
+    <div class="kb-cat-body" id="kb-body-special">
+      <div class="kb-article" data-tags="whirlpool board recall control board drain pump w11766193 service pointer backorder top load stacked">
+        <div class="kb-article-header">
+          <div>
+            <div class="kb-article-title">Whirlpool Control Board Recall (Part Ordering)</div>
+            <div class="kb-article-meta"><span class="kb-tag">Whirlpool</span><span class="kb-tag">Recall</span><span class="kb-tag">W11766193</span></div>
+          </div>
+          <div class="kb-critical-badge">⚠ Service Pointer</div>
+        </div>
+        <div class="kb-contact-bar">
+          <span>📞 Whirlpool Parts: <strong>1-800-952-2537</strong> (option for Parts and Services)</span>
+        </div>
+        <div class="kb-article-body">For the recall issue of a failed control board causing a constantly running drain pump — covered under Technical Service Pointer #W11766193 Rev C.</div>
+        <div class="kb-rules-grid">
+          <div class="kb-rule kb-rule-ok"><div class="kb-rule-label">When to call it in</div><div class="kb-rule-body">Customer is OK waiting on a possible backorder of the boards, AND the unit is a new unit made within the pointer&apos;s serial number range.</div></div>
+          <div class="kb-rule kb-rule-ok"><div class="kb-rule-label">Top Load Washers</div><div class="kb-rule-body">Models ranging from CC01xxxx to CD05xxxx</div></div>
+          <div class="kb-rule kb-rule-ok"><div class="kb-rule-label">Stacked Laundry Units</div><div class="kb-rule-body">Models ranging from MC01xxxx to MD05xxxx</div></div>
+        </div>
+        <div class="kb-callout">
+          <div class="kb-callout-label">📋 How to call in the order</div>
+          1. Call Parts Dept 1-800-952-2537 (Parts and Services). 2. Provide model #, serial #, date of closing (purchase date), and part #. 3. Confirm the serial is still covered under the pointer (W11766193 Rev C) — if so provide customer number, name, and address. 4. Get the reference number and ETA. If backordered, tell the customer they can call Whirlpool Parts to follow up after 14 days. 5. Double-check the shipping address. 6. Add all info to the Parts Ordered List.
+        </div>
+      </div>
+    </div>
+  </div>
+
 </div>
 
 <!-- ══ FOLLOW-UPS ══ -->
@@ -1376,7 +1685,12 @@ async function initSupabase(){
     return false;
   }
   sb = window.supabase.createClient(SUPABASE_URL, SUPABASE_ANON, {
-    auth: { persistSession: true, autoRefreshToken: true }
+    auth: {
+      persistSession: true,
+      autoRefreshToken: true,
+      storageKey: 'ca_hub_auth',  // consistent key across file:// and https://
+      storage: window.localStorage,
+    }
   });
   const { data: { session } } = await sb.auth.getSession();
   if(session) currentUser = session.user;
@@ -1406,10 +1720,26 @@ const D = {
   rates:     JSON.parse(localStorage.getItem('ca_setting_rates') || localStorage.getItem('ca_rates')    || JSON.stringify({res:150,comm:185,pro:165,ship:15,sameday:25})),
 };
 function save(k){
-  // Always write to local cache immediately (fast UI)
   localStorage.setItem('ca_sb_'+k, JSON.stringify(D[k]));
-  // Legacy key for backward compat
   localStorage.setItem('ca_'+k, JSON.stringify(D[k]));
+}
+
+// Silent background sync — never blocks UI, never replaces working local data
+function syncToSupabase(table, data){
+  if(!sb || !isOnline || !data || !data.length) return;
+  // Fire and forget — UI never waits for this
+  setTimeout(async () => {
+    try {
+      for(const row of data.slice(0,5)){ // sync recent items only
+        const snakeRow = toSnake({...row, user_id: currentUser?.id});
+        await sb.from(table).upsert(snakeRow, {onConflict:'id', ignoreDuplicates:true});
+      }
+      setSyncStatus(true);
+    } catch(e) {
+      setSyncStatus(false);
+      console.warn('Background sync failed:', e.message);
+    }
+  }, 2000);
 }
 
 
@@ -1490,15 +1820,41 @@ function hideOfflineBanner(){
 }
 
 // ── Generic DB helpers ─────────────────────────────────
+// Convert snake_case keys to camelCase
+function toCamel(obj){
+  if(!obj||typeof obj!=='object') return obj;
+  if(Array.isArray(obj)) return obj.map(toCamel);
+  const out={};
+  Object.entries(obj).forEach(([k,v])=>{
+    const ck=k.replace(/_([a-z])/g,(_,c)=>c.toUpperCase());
+    out[ck]=toCamel(v);
+  });
+  return out;
+}
+// Convert camelCase keys to snake_case
+function toSnake(obj){
+  if(!obj||typeof obj!=='object') return obj;
+  if(Array.isArray(obj)) return obj.map(toSnake);
+  const out={};
+  Object.entries(obj).forEach(([k,v])=>{
+    const sk=k.replace(/([A-Z])/g,c=>'_'+c.toLowerCase());
+    if(v!==undefined) out[sk]=v;
+  });
+  return out;
+}
+
 async function dbSelect(table, filters){
   if(!sb||!isOnline) return localGet(table);
   try{
     let q = sb.from(table).select('*');
-    if(filters) Object.entries(filters).forEach(([k,v]) => { q = q.eq(k,v); });
+    if(filters) Object.entries(filters).forEach(([k,v]) => {
+      q = q.eq(k.replace(/([A-Z])/g,c=>'_'+c.toLowerCase()), v);
+    });
     const { data, error } = await q.order('created_at', { ascending: false });
     if(error) throw error;
-    localSet(table, data);
-    return data || [];
+    const converted = (data||[]).map(toCamel);
+    localSet(table, converted);
+    return converted;
   }catch(e){
     console.warn('DB read failed, using local:', e.message);
     return localGet(table);
@@ -1510,10 +1866,11 @@ async function dbInsert(table, row){
   localAppend(table, rowWithUser);
   if(!sb||!isOnline) return rowWithUser;
   try{
-    const { data, error } = await sb.from(table).insert(rowWithUser).select().single();
+    const snakeRow = toSnake(rowWithUser);
+    const { data, error } = await sb.from(table).insert(snakeRow).select().single();
     if(error) throw error;
     setSyncStatus(true);
-    return data;
+    return toCamel(data);
   }catch(e){
     console.warn('DB insert failed, queued locally:', e.message);
     setSyncStatus(false);
@@ -1526,7 +1883,8 @@ async function dbUpdate(table, id, changes){
   localUpdate(table, id, changes);
   if(!sb||!isOnline){ queueOfflineOp({ type:'update', table, id, changes }); return; }
   try{
-    const { error } = await sb.from(table).update(changes).eq('id', id);
+    const snakeChanges = toSnake(changes);
+    const { error } = await sb.from(table).update(snakeChanges).eq('id', id);
     if(error) throw error;
   }catch(e){
     console.warn('DB update failed, queued:', e.message);
@@ -1624,24 +1982,69 @@ function handleRealtimeChange(table, payload){
 // ═══════════════════════════════════════════════════════
 // DATA LOAD FUNCTIONS (called on page nav)
 // ═══════════════════════════════════════════════════════
-async function loadOrders(){
-  D.orders = await dbSelect('orders');
+function loadOrders(){
+  // Load from localStorage immediately — always works, always fast
+  const cached = JSON.parse(localStorage.getItem('ca_sb_orders') || localStorage.getItem('ca_orders') || '[]');
+  if(cached.length) D.orders = cached;
   renderOrders();
   updateBadges();
+  // Background Supabase sync (non-blocking)
+  if(sb && isOnline){
+    setTimeout(async () => {
+      try{
+        const fresh = await dbSelect('orders');
+        if(fresh && fresh.length > 0 && fresh.length >= D.orders.length){
+          D.orders = fresh;
+          save('orders');
+          renderOrders();
+          updateBadges();
+        }
+      }catch(e){ console.warn('Orders sync:', e.message); }
+    }, 500);
+  }
 }
-async function loadInventory(){
-  D.inventory = await dbSelect('inventory');
+function loadInventory(){
+  const cached = JSON.parse(localStorage.getItem('ca_sb_inventory') || localStorage.getItem('ca_inv') || '[]');
+  if(cached.length) D.inventory = cached;
   renderInv();
   populateLocFilters();
+  if(sb && isOnline){
+    setTimeout(async () => {
+      try{
+        const fresh = await dbSelect('inventory');
+        if(fresh && fresh.length > 0 && fresh.length >= D.inventory.length){
+          D.inventory = fresh; save('inventory'); renderInv(); populateLocFilters();
+        }
+      }catch(e){ console.warn('Inventory sync:', e.message); }
+    }, 500);
+  }
 }
-async function loadReturns(){
-  D.returns = await dbSelect('returns');
+function loadReturns(){
+  const cached = JSON.parse(localStorage.getItem('ca_sb_returns') || localStorage.getItem('ca_returns') || '[]');
+  if(cached.length) D.returns = cached;
   renderReturns();
   updateBadges();
+  if(sb && isOnline){
+    setTimeout(async () => {
+      try{
+        const fresh = await dbSelect('returns');
+        if(fresh && fresh.length > 0){ D.returns = fresh; save('returns'); renderReturns(); updateBadges(); }
+      }catch(e){ console.warn('Returns sync:', e.message); }
+    }, 500);
+  }
 }
-async function loadJobs(){
-  D.jobs = await dbSelect('job_log');
+function loadJobs(){
+  const cached = JSON.parse(localStorage.getItem('ca_sb_jobs') || localStorage.getItem('ca_jobs') || '[]');
+  if(cached.length) D.jobs = cached;
   renderJobLog();
+  if(sb && isOnline){
+    setTimeout(async () => {
+      try{
+        const fresh = await dbSelect('job_log');
+        if(fresh && fresh.length > 0){ D.jobs = fresh; save('jobs'); renderJobLog(); }
+      }catch(e){ console.warn('Jobs sync:', e.message); }
+    }, 500);
+  }
 }
 async function loadSettings(){
   // Locations and stock list stored in a settings table as JSON
@@ -1702,7 +2105,7 @@ function navTo(page){
   document.getElementById('page-'+page).classList.add('active');
   const btn=document.querySelector(`.ni[data-page="${page}"]`);
   if(btn) btn.classList.add('active');
-  const titles={home:'Home',triage:'Lookup + Triage',scanner:'Parts Scanner',orders:'Order List',inventory:'Inventory',returns:'Returns',arrivals:'Arrivals',joblog:'Job Log',followup:'Follow-ups',kb:'Knowledge Base',settings:'Settings'};
+  const titles={home:'Home',triage:'Lookup + Triage',scanner:'Parts Scanner',orders:'Order List',inventory:'Inventory',returns:'Returns',arrivals:'Arrivals',joblog:'Job Log',masterlog:'Master Log',followup:'Follow-ups',kb:'Knowledge Base',settings:'Settings'};
   document.getElementById('topbar-title').textContent=titles[page]||page;
   closeNav();
   if(page==='home') refreshHome();
@@ -1711,6 +2114,7 @@ function navTo(page){
   if(page==='returns'){ loadReturns(); }
   if(page==='arrivals'){ renderArrivals(); }
   if(page==='joblog'){ loadJobs(); renderPendingBanner(); }
+  if(page==='masterlog'){ renderMasterLog(); }
   if(page==='followup'){ renderFollowUps(); }
   if(page==='settings'){ loadSettings(); }
   if(page==='kb'){ renderKB(); }
@@ -2169,20 +2573,12 @@ function populatePickupRunSelect(){
 // ═══════════════════════════════════════════════════════
 
 function openAddOrder(type){
+  // Form is always visible — just update the list type selector
   addOrderType = type;
-  var titleEl = document.getElementById('add-order-title');
-  if(titleEl) titleEl.textContent = 'Add part to ' + type + ' order list';
-  var form = document.getElementById('add-order-form');
-  if(form) form.style.display = 'block';
-  toggleFulfillmentFields();
-  populatePickupRunSelect();
-  var avSel = document.getElementById('ao-avail');
-  if(avSel) avSel.onchange = toggleBackorderFields;
-  var jn = document.getElementById('ao-jobnum');
-  if(jn) jn.oninput = checkOrderConflict;
-  var pr = document.getElementById('ao-pickup-run');
-  if(pr) pr.onchange = checkOrderConflict;
-  if(form) form.scrollIntoView({behavior:'smooth', block:'nearest'});
+  var sel = document.getElementById('ao-list-type');
+  if(sel) sel.value = type;
+  var numEl = document.getElementById('ao-num');
+  if(numEl){ numEl.focus(); numEl.scrollIntoView({behavior:'smooth', block:'center'}); }
 }
 
 function closeAddOrder(){
@@ -2191,16 +2587,10 @@ function closeAddOrder(){
 }
 
 function saveOrderItem(){
-  var num = (document.getElementById('ao-num') || {}).value;
-  num = (num || '').trim();
+  var num = ((document.getElementById('ao-num') || {}).value || '').trim();
   if(!num){ showToast('Enter a part number.'); return; }
-  var fulfillment = (document.getElementById('ao-fulfillment') || {}).value || 'shipped';
-  var avail = (document.getElementById('ao-avail') || {}).value || 'unknown';
-  var pickupRun = fulfillment === 'pickup' ? ((document.getElementById('ao-pickup-run') || {}).value || null) : null;
-  var pickupType = fulfillment === 'pickup' ? ((document.getElementById('ao-pickup-type') || {}).value || null) : null;
-  var backorderETA = (document.getElementById('ao-backorder-eta') || {}).value || null;
-  var jobNum = ((document.getElementById('ao-jobnum') || {}).value || '').trim();
-  var dist = fulfillment === 'pickup' ? 'Reliable — San Antonio' : ((document.getElementById('ao-dist') || {}).value || '');
+  var dist = (document.getElementById('ao-dist') || {}).value || 'Reliable — San Antonio';
+  var listType = (document.getElementById('ao-list-type') || {}).value || 'daily';
   var order = {
     id: Date.now(),
     partNum: num,
@@ -2210,38 +2600,31 @@ function saveOrderItem(){
     distributor: dist,
     tech: (document.getElementById('ao-tech') || {}).value || '',
     priority: (document.getElementById('ao-pri') || {}).value || 'normal',
-    status: fulfillment === 'pickup' ? 'pickup_pending' : 'pending',
-    type: addOrderType,
+    status: 'pending',
+    type: listType,
     addedDate: today(),
-    fulfillment: fulfillment,
-    availStatus: avail,
-    pickupRun: pickupRun,
-    pickupType: pickupType,
-    pickupConfirmed: false,
-    backorderETA: backorderETA,
-    jobNum: jobNum,
+    fulfillment: 'shipped',
+    availStatus: 'unknown',
+    jobNum: ((document.getElementById('ao-jobnum') || {}).value || '').trim(),
+    serial: (document.getElementById('ao-serial') || {}).value || '',
+    triage: ((document.getElementById('ao-triage') || {}).checked) || false,
     trackingNum: '',
   };
   D.orders.unshift(order);
-  dbInsert('orders', order);
-  if(fulfillment === 'shipped'){
-    const ret = {id:Date.now()+1,partNum:num,desc:order.desc,brand:order.brand,qty:order.qty,distributor:order.distributor,orderedDate:today(),status:'pending'};
-    D.returns.unshift(ret);
-    dbInsert('returns', ret);
-  }
   save('orders');
   updateBadges();
   renderOrders();
-  closeAddOrder();
-  // Confirmation toast with details
-  if(avail === 'backordered' || avail === 'backordered_eta'){
-    showToast('⚠ ' + num + ' added — backordered. Customer communication needed.');
-  } else {
-    const eta = calcETA(dist, today());
-    showConfirmation(num, order.desc, order.qty, dist, eta, addOrderType);
-  }
-  var clearIds = ['ao-num','ao-desc','ao-brand','ao-jobnum','ao-tech'];
-  clearIds.forEach(function(id){ var el=document.getElementById(id); if(el) el.value=''; });
+  syncToSupabase('orders', D.orders);
+  // Clear form fields except distributor and priority
+  ['ao-num','ao-desc','ao-brand','ao-jobnum','ao-tech','ao-serial'].forEach(function(id){
+    var el = document.getElementById(id); if(el) el.value='';
+  });
+  var triageEl = document.getElementById('ao-triage'); if(triageEl) triageEl.checked = false;
+  var qEl = document.getElementById('ao-qty'); if(qEl) qEl.value='1';
+  // Show confirmation
+  showConfirmation(num, order.desc, order.qty, dist, calcETA(dist, today()), listType);
+  // Focus back on part number for fast multi-part entry
+  var numEl = document.getElementById('ao-num'); if(numEl) numEl.focus();
 }
 
 // ═══════════════════════════════════════════════════════
@@ -2252,40 +2635,126 @@ function markOrdered(id){
   if(!p) return;
   p.status = 'ordered';
   p.orderedDate = today();
-  if(!D.returns.find(function(r){ return r.partNum===p.partNum && r.status==='pending'; })){
-    D.returns.push({id:Date.now(),partNum:p.partNum,desc:p.desc,brand:p.brand,qty:p.qty,distributor:p.distributor,orderedDate:today(),status:'pending'});
-  }
-  dbUpdate('orders', p.id, {status:'ordered', orderedDate:p.orderedDate});
-  dbInsert('returns', D.returns[D.returns.length-1]);
-  save('orders'); save('returns'); updateBadges(); renderOrders();
-  showToast(p.partNum + ' marked ordered. 25-day return window started.');
+  save('orders'); updateBadges(); renderOrders();
+  syncToSupabase('orders', D.orders);
+  showConfirmation(p.partNum, p.desc, p.qty, p.distributor, calcETA(p.distributor, today()), 'ordered — 25-day return clock started');
 }
 
-function markUsed(id){
-  var idx = D.orders.findIndex(function(x){ return x.id == id; });
-  if(idx < 0) return;
-  var p = D.orders[idx];
-  D.returns = D.returns.filter(function(r){ return !(r.partNum===p.partNum && r.orderedDate===p.orderedDate); });
-  D.orders.splice(idx, 1);
-  save('orders'); save('returns'); updateBadges(); renderOrders();
-  showToast(p.partNum + ' marked used — removed from returns.');
-}
-
-function markUnused(id){
+function markReceived(id){
   var p = D.orders.find(function(x){ return x.id == id; });
   if(!p) return;
-  if(!D.returns.find(function(r){ return r.partNum===p.partNum && r.status==='pending'; })){
-    D.returns.push({id:Date.now(),partNum:p.partNum,desc:p.desc,brand:p.brand,qty:p.qty,distributor:p.distributor,orderedDate:p.orderedDate||today(),status:'pending'});
-  }
-  D.orders = D.orders.filter(function(x){ return x.id != id; });
-  save('orders'); save('returns'); updateBadges(); renderOrders();
-  showToast(p.partNum + ' moved to Returns tracker.');
+  p.status = 'received';
+  p.receivedDate = today();
+  save('orders'); updateBadges(); renderOrders();
+  syncToSupabase('orders', D.orders);
+  showToast(p.partNum + ' received — ready to install or move to inventory.' + (p.jobNum ? ' (Job #' + p.jobNum + ')' : ''));
 }
+
+// Open the resolution chooser for a received part
+function openResolve(id){
+  var p = D.orders.find(function(x){ return x.id == id; });
+  if(!p) return;
+  // Build a modal with the four resolution paths
+  const modal = document.createElement('div');
+  modal.id = 'resolve-modal';
+  modal.style.cssText = 'position:fixed;inset:0;background:rgba(0,0,0,.7);z-index:400;display:flex;align-items:center;justify-content:center;padding:20px;';
+  modal.onclick = function(e){ if(e.target === modal) modal.remove(); };
+  modal.innerHTML = `
+    <div style="background:var(--panel);border:1px solid var(--border);border-radius:13px;padding:22px;width:95%;max-width:460px;">
+      <div style="display:flex;justify-content:space-between;align-items:flex-start;margin-bottom:6px;">
+        <div style="font-family:var(--cond);font-size:18px;font-weight:600;">Resolve part</div>
+        <button onclick="document.getElementById('resolve-modal').remove()" style="background:none;border:none;color:var(--muted);font-size:20px;cursor:pointer;">✕</button>
+      </div>
+      <div style="font-family:var(--mono);font-size:14px;color:var(--teal);margin-bottom:2px;">${p.partNum}</div>
+      <div style="font-size:12px;color:var(--muted);margin-bottom:18px;">${p.desc||''}${p.jobNum?' · Job #'+p.jobNum:''}</div>
+      <div style="display:flex;flex-direction:column;gap:9px;">
+        <button class="btn btn-p" onclick="resolvePart(${p.id},'installed')" style="justify-content:flex-start;text-align:left;padding:13px 16px;">
+          <div><div style="font-weight:600;">✅ Installed on the job</div><div style="font-size:11px;opacity:.85;font-weight:400;">Used on job — removes from list, logs to job</div></div>
+        </button>
+        <button class="btn btn-a" onclick="resolvePart(${p.id},'inventory')" style="justify-content:flex-start;text-align:left;padding:13px 16px;">
+          <div><div style="font-weight:600;">📦 Move to inventory</div><div style="font-size:11px;opacity:.85;font-weight:400;">Stock on a van or warehouse — creates a lot</div></div>
+        </button>
+        <button class="btn btn-coral" onclick="resolvePart(${p.id},'triage_return')" style="justify-content:flex-start;text-align:left;padding:13px 16px;">
+          <div><div style="font-weight:600;">↩ Triage return</div><div style="font-size:11px;opacity:.85;font-weight:400;">Not needed — to returns, 25-day clock from order date</div></div>
+        </button>
+        <button class="btn btn-g" onclick="resolvePart(${p.id},'urgent_return')" style="justify-content:flex-start;text-align:left;padding:13px 16px;border-color:var(--red);">
+          <div><div style="font-weight:600;color:var(--red);">⚠ Urgent return</div><div style="font-size:11px;opacity:.85;font-weight:400;">Wrong/damaged/duplicate — contact vendor now</div></div>
+        </button>
+      </div>
+    </div>`;
+  document.body.appendChild(modal);
+}
+
+// Resolve a part into one of the four outcomes
+function resolvePart(id, outcome){
+  var p = D.orders.find(function(x){ return x.id == id; });
+  if(!p) return;
+  const modal = document.getElementById('resolve-modal');
+  if(modal) modal.remove();
+
+  // Mark resolved and stamp the outcome — stays in D.orders for master log
+  p.status = 'resolved';
+  p.resolution = outcome;
+  p.resolvedDate = today();
+
+  if(outcome === 'installed'){
+    save('orders'); updateBadges(); renderOrders();
+    syncToSupabase('orders', D.orders);
+    showToast(p.partNum + ' installed' + (p.jobNum?' on job #'+p.jobNum:'') + ' — moved to master log.');
+  }
+  else if(outcome === 'inventory'){
+    // Ask for location, create inventory record + lot
+    const loc = prompt('Which location? (' + (D.locations||['Warehouse / Shop']).join(', ') + ')', (D.locations&&D.locations[0])||'Warehouse / Shop');
+    if(loc){
+      const costStr = prompt('Purchase cost per unit? (Enter 0 if unknown)', '0');
+      const cost = parseFloat(costStr||'0');
+      const existing = D.inventory.find(x=>x.partNum.toLowerCase()===p.partNum.toLowerCase()&&x.loc===loc);
+      if(existing){ existing.qty += (p.qty||1); existing.lastUpdated = today(); }
+      else {
+        const np = {id:Date.now(),partNum:p.partNum,desc:p.desc,brand:p.brand,cat:'',qty:p.qty||1,loc:loc,distributor:p.distributor,addedDate:today(),lastUpdated:today()};
+        D.inventory.push(np);
+        if(typeof dbInsert==='function') dbInsert('inventory', np);
+      }
+      if(cost > 0 && typeof addLot === 'function') addLot(p.partNum, loc, p.qty||1, cost, p.distributor);
+      save('inventory');
+    }
+    save('orders'); updateBadges(); renderOrders();
+    syncToSupabase('orders', D.orders);
+    showToast(p.partNum + ' moved to inventory at ' + (loc||'location') + '.');
+  }
+  else if(outcome === 'triage_return' || outcome === 'urgent_return'){
+    // Add to returns tracker
+    const ret = {
+      id: Date.now(),
+      partNum: p.partNum, desc: p.desc, brand: p.brand, qty: p.qty,
+      distributor: p.distributor,
+      orderedDate: p.orderedDate || today(),
+      status: 'pending',
+      returnType: outcome === 'triage_return' ? 'triaged' : 'immediate',
+      jobNum: p.jobNum || '',
+      notes: outcome === 'urgent_return' ? 'Urgent: wrong/damaged/duplicate' : 'Triage part not used',
+      addedDate: today(),
+    };
+    D.returns.unshift(ret);
+    if(typeof dbInsert==='function') dbInsert('returns', ret);
+    save('returns');
+    save('orders'); updateBadges(); renderOrders(); 
+    if(typeof renderReturns==='function') renderReturns();
+    syncToSupabase('orders', D.orders);
+    syncToSupabase('returns', D.returns);
+    const label = outcome === 'urgent_return' ? 'urgent return — contact ' + p.distributor : 'triage return';
+    showToast(p.partNum + ' moved to returns (' + label + ').');
+  }
+}
+
+
+
+
 
 function deleteOrder(id){
   D.orders = D.orders.filter(function(x){ return x.id != id; });
-  dbDelete('orders', id);
   save('orders'); updateBadges(); renderOrders();
+  syncToSupabase('orders', D.orders);
   showToast('Part removed from order list.');
 }
 
@@ -2368,7 +2837,39 @@ function openMPHSearch(){
 }
 
 
+
+// ═══════════════════════════════════════════════════════
+// ETA CALCULATION
+// ═══════════════════════════════════════════════════════
+function calcETA(distributor, fromDate){
+  if(!fromDate) fromDate = today();
+  const dist = (distributor || '').toLowerCase();
+  let leadDays = 2; // default
+  if(dist.includes('san antonio')) leadDays = 1;       // Reliable SA = next day
+  else if(dist.includes('mesquite')) leadDays = 2;      // Reliable Mesquite = 2 days
+  else if(dist.includes('partstown')) leadDays = 2;
+  else if(dist.includes('marcone')) leadDays = 2;
+  else if(dist.includes('encompass')) leadDays = 2;
+  else if(dist.includes('apc')) leadDays = 3;
+  // Calculate arrival date, skipping weekends
+  const d = new Date(fromDate + 'T12:00:00');
+  let added = 0;
+  while(added < leadDays){
+    d.setDate(d.getDate() + 1);
+    const dow = d.getDay();
+    if(dow !== 0 && dow !== 6) added++; // skip Sat(6) and Sun(0)
+  }
+  return 'ETA ' + d.toLocaleDateString('en-US',{weekday:'short',month:'short',day:'numeric'});
+}
+
 function renderOrders(){
+  // Update count labels — count everything not fully completed
+  const dailyCount = D.orders.filter(o=>o.type==='daily'&&o.status!=='arrived').length;
+  const weeklyCount = D.orders.filter(o=>o.type==='weekly'&&o.status!=='arrived').length;
+  const dc = document.getElementById('daily-count');
+  const wc = document.getElementById('weekly-count');
+  if(dc) dc.textContent = dailyCount ? '(' + dailyCount + ' pending)' : '';
+  if(wc) wc.textContent = weeklyCount ? '(' + weeklyCount + ' pending)' : '';
   renderOrderSection('daily','daily-order-list');
   renderOrderSection('weekly','weekly-order-list');
   updateBadges();
@@ -2414,79 +2915,149 @@ function buildEditPanel(p, type){
 }
 
 function renderOrderSection(type, containerId){
-  const items = D.orders.filter(o => o.type === type);
   const div = document.getElementById(containerId);
+  if(!div) return;
+  // Only show parts NOT yet resolved (resolved parts live in master log)
+  const items = D.orders.filter(o => o.type === type && o.status !== 'resolved');
   if(!items.length){
-    div.innerHTML = `<div style="font-size:12px;color:var(--muted);padding:12px 0;">No ${type} orders yet.</div>`;
+    div.innerHTML = `<div style="background:var(--card);border:1px dashed var(--border);border-radius:9px;padding:20px;text-align:center;color:var(--muted);font-size:13px;">No parts on the ${type} list yet.</div>`;
     return;
   }
-  const pending = items.filter(o => o.status==='pending' || o.status==='pickup_pending');
-  const ordered = items.filter(o => o.status==='ordered' || o.status==='pickup_confirmed');
+  // Sort: pending first, then ordered, then received
+  const order = {pending:0, ordered:1, received:2};
+  items.sort((a,b) => (order[a.status]??0) - (order[b.status]??0));
   let html = '';
-
-  if(pending.length){
-    html += `<div style="font-size:11px;color:var(--muted);margin-bottom:8px;font-weight:500;">Pending (${pending.length})</div>`;
-    pending.forEach(p => {
-      const eta = calcETA(p.distributor, p.addedDate);
-      const avBadge = p.availStatus && p.availStatus!=='unknown'
-        ? `<span class="badge b-amber" style="font-size:9px;">${p.availStatus.replace(/_/g,' ')}</span>` : '';
-      html += `
-      <div style="background:var(--card);border:1px solid var(--border);border-radius:9px;overflow:hidden;margin-bottom:8px;" id="order-row-${p.id}">
-        <div style="padding:10px 13px;display:flex;align-items:flex-start;justify-content:space-between;gap:10px;flex-wrap:wrap;">
-          <div style="display:flex;flex-wrap:wrap;gap:8px;align-items:center;flex:1;min-width:0;">
-            <span style="font-family:var(--mono);font-size:13px;font-weight:600;color:var(--teal);">${p.partNum||'—'}</span>
-            <span style="font-size:12px;">${p.desc||'—'}</span>
-            <span style="font-size:11px;color:var(--muted);">${p.brand||''}</span>
-            <span style="font-size:12px;">×${p.qty||1}</span>
-            <span style="font-size:11px;color:var(--muted);">${p.distributor||'—'}</span>
-            <span style="font-size:11px;color:var(--muted);">${eta}</span>
-            <span class="badge ${p.priority==='urgent'?'b-red':'b-muted'}">${p.priority||'normal'}</span>
-            ${avBadge}
-            ${p.jobNum ? `<span class="badge b-blue">Job #${p.jobNum}</span>` : ''}
+  items.forEach(p => {
+    const st = p.status || 'pending';
+    const eta = calcETA(p.distributor, p.addedDate || p.orderedDate || today());
+    // Status badge + border color
+    let statusBadge, borderColor;
+    if(st === 'received'){ statusBadge = '<span class="badge b-teal">● Received</span>'; borderColor = 'var(--teal-d)'; }
+    else if(st === 'ordered'){ statusBadge = '<span class="badge b-amber">● Ordered</span>'; borderColor = 'var(--amber)'; }
+    else { statusBadge = '<span class="badge b-muted">○ Pending</span>'; borderColor = 'var(--border)'; }
+    // Return-window countdown if ordered or received
+    let returnInfo = '';
+    if((st === 'ordered' || st === 'received') && p.orderedDate){
+      const daysLeft = 25 - daysSince(p.orderedDate);
+      const clr = daysLeft <= 5 ? 'var(--red)' : daysLeft <= 10 ? 'var(--amber)' : 'var(--muted)';
+      returnInfo = `<span style="font-size:11px;color:${clr};">↩ ${daysLeft}d return window</span>`;
+    }
+    html += `
+    <div style="background:var(--card);border:1px solid ${borderColor};border-radius:9px;margin-bottom:8px;overflow:hidden;" id="order-row-${p.id}">
+      <div style="padding:12px 14px;">
+        <div style="display:flex;align-items:center;justify-content:space-between;gap:10px;flex-wrap:wrap;margin-bottom:8px;">
+          <div style="display:flex;flex-wrap:wrap;gap:9px;align-items:center;flex:1;min-width:0;">
+            <span style="font-family:var(--mono);font-size:14px;font-weight:600;color:var(--teal);">${p.partNum||'(no part #)'}</span>
+            ${p.desc?`<span style="font-size:13px;">${p.desc}</span>`:''}
+            ${p.brand?`<span style="font-size:12px;color:var(--muted);">${p.brand}</span>`:''}
+            <span style="font-size:12px;color:var(--muted);">×${p.qty||1}</span>
+            ${statusBadge}
+            ${p.triage?`<span class="badge b-coral">Triage</span>`:''}
+            ${p.priority==='urgent'?`<span class="badge b-red">Urgent</span>`:''}
+            ${p.jobNum?`<span class="badge b-blue">Job #${p.jobNum}</span>`:''}
+          </div>
+          <button class="btn btn-g btn-sm" onclick="toggleEditOrder(${p.id})" style="flex-shrink:0;">✏ Edit</button>
+        </div>
+        <div style="display:flex;align-items:center;justify-content:space-between;gap:10px;flex-wrap:wrap;">
+          <div style="display:flex;gap:12px;flex-wrap:wrap;font-size:11px;color:var(--muted);align-items:center;">
+            ${p.distributor?`<span>${p.distributor}</span>`:''}
+            <span>${eta}</span>
+            ${returnInfo}
           </div>
           <div style="display:flex;gap:5px;flex-wrap:wrap;flex-shrink:0;">
-            <button class="btn btn-g btn-sm" onclick="toggleEditRow(${p.id})">✏ Edit</button>
-            ${type==='weekly' ? `<button class="btn btn-p btn-sm" onclick="confirmWeeklyItem(${p.id})">Confirm</button>` : ''}
-            <button class="btn btn-coral btn-sm" onclick="markOrdered(${p.id})">Ordered</button>
-            <button class="btn btn-g btn-sm" onclick="markUnused(${p.id})">Not needed</button>
-            <button onclick="deleteOrder(${p.id})" style="background:none;border:none;color:var(--muted);cursor:pointer;font-size:16px;padding:2px;">🗑</button>
+            ${renderStatusButtons(p)}
+            <button onclick="deleteOrder(${p.id})" style="background:none;border:none;color:var(--muted);cursor:pointer;font-size:15px;padding:2px;">🗑</button>
           </div>
         </div>
-        ${buildEditPanel(p, 'pending')}
-      </div>`;
-    });
-  }
-
-  if(ordered.length){
-    html += `<div style="font-size:11px;color:var(--muted);margin-top:4px;margin-bottom:8px;font-weight:500;">Ordered (${ordered.length})</div>`;
-    ordered.forEach(p => {
-      const days = Math.max(0, 25 - daysSince(p.orderedDate));
-      const eta = calcETA(p.distributor, p.orderedDate);
-      const dbc = days<=3?'b-red':days<=7?'b-amber':'b-muted';
-      html += `
-      <div style="background:var(--card);border:1px solid var(--border);border-radius:9px;overflow:hidden;margin-bottom:8px;" id="order-row-${p.id}">
-        <div style="padding:10px 13px;display:flex;align-items:center;justify-content:space-between;gap:10px;flex-wrap:wrap;">
-          <div style="display:flex;flex-wrap:wrap;gap:8px;align-items:center;flex:1;min-width:0;">
-            <span style="font-family:var(--mono);font-size:13px;font-weight:600;color:var(--teal);">${p.partNum||'—'}</span>
-            <span style="font-size:12px;">${p.desc||'—'} ${p.brand?'· '+p.brand:''}</span>
-            <span style="font-size:11px;color:var(--muted);">×${p.qty||1}</span>
-            <span style="font-size:11px;color:var(--muted);">${p.distributor||'—'}</span>
-            <span style="font-size:11px;color:var(--muted);">${p.orderedDate||'—'}</span>
-            <span style="font-size:11px;">${eta} <span class="badge ${dbc}">${days}d</span></span>
-            ${p.trackingNum ? `<a href="https://www.google.com/search?q=${encodeURIComponent(p.trackingNum)}" target="_blank" style="font-size:11px;color:var(--teal);text-decoration:none;">${p.trackingNum} ↗</a>` : ''}
+      </div>
+      <div id="edit-panel-${p.id}" style="display:none;padding:14px;border-top:1px solid var(--border);background:var(--panel);">
+        <div class="frow">
+          <div class="fw"><label class="lbl">Part #</label><input type="text" id="edit-num-${p.id}" value="${(p.partNum||'').replace(/"/g,'&quot;')}" style="font-family:var(--mono);"></div>
+          <div class="fw"><label class="lbl">Description</label><input type="text" id="edit-desc-${p.id}" value="${(p.desc||'').replace(/"/g,'&quot;')}"></div>
+          <div style="width:110px;"><label class="lbl">Job #</label><input type="text" id="edit-jobnum-${p.id}" value="${(p.jobNum||'').replace(/"/g,'&quot;')}"></div>
+        </div>
+        <div class="frow">
+          <div class="fw"><label class="lbl">Brand / unit</label><input type="text" id="edit-brand-${p.id}" value="${(p.brand||'').replace(/"/g,'&quot;')}"></div>
+          <div style="width:70px;"><label class="lbl">Qty</label><input type="number" id="edit-qty-${p.id}" value="${p.qty||1}" min="1"></div>
+          <div class="fw"><label class="lbl">Distributor</label>
+            <select id="edit-dist-${p.id}">
+              ${['Reliable — San Antonio','Reliable — Mesquite','PartsTown','Marcone','Encompass','APC','Other'].map(d=>`<option ${p.distributor===d?'selected':''}>${d}</option>`).join('')}
+            </select>
           </div>
-          <div style="display:flex;gap:5px;flex-wrap:wrap;flex-shrink:0;">
-            <button class="btn btn-g btn-sm" onclick="toggleEditRow(${p.id})">✏ Edit</button>
-            <button class="btn btn-p btn-sm" onclick="markUsed(${p.id})">Used ✔</button>
-            <button class="btn btn-g btn-sm" onclick="markUnused(${p.id})">Unused → return</button>
+          <div class="fw"><label class="lbl">Priority</label>
+            <select id="edit-pri-${p.id}">
+              <option value="normal" ${p.priority!=='urgent'?'selected':''}>Normal</option>
+              <option value="urgent" ${p.priority==='urgent'?'selected':''}>Urgent</option>
+            </select>
+          </div>
+          <div class="fw"><label class="lbl">List</label>
+            <select id="edit-type-${p.id}">
+              <option value="daily" ${p.type==='daily'?'selected':''}>Daily — Urgent</option>
+              <option value="weekly" ${p.type==='weekly'?'selected':''}>Weekly — Stock</option>
+            </select>
           </div>
         </div>
-        ${buildEditPanel(p, 'ordered')}
-      </div>`;
-    });
-  }
+        <div style="margin-bottom:10px;">
+          <label style="display:flex;align-items:center;gap:8px;font-size:12px;cursor:pointer;color:var(--text);">
+            <input type="checkbox" id="edit-triage-${p.id}" ${p.triage?'checked':''} style="width:16px;height:16px;">
+            Triage part — ordered to confirm diagnosis, may not be installed
+          </label>
+        </div>
+        <div class="arow">
+          <button class="btn btn-p btn-sm" onclick="saveEditOrder(${p.id})">Save changes</button>
+          <button class="btn btn-m btn-sm" onclick="toggleEditOrder(${p.id})">Cancel</button>
+        </div>
+      </div>
+    </div>`;
+  });
   div.innerHTML = html;
 }
+
+// Status buttons depend on current stage — one button moves it forward
+function renderStatusButtons(p){
+  const st = p.status || 'pending';
+  if(st === 'pending'){
+    return `<button class="btn btn-coral btn-sm" onclick="markOrdered(${p.id})">Mark ordered</button>`;
+  }
+  if(st === 'ordered'){
+    return `<button class="btn btn-a btn-sm" onclick="markReceived(${p.id})">Mark received</button>`;
+  }
+  if(st === 'received'){
+    // Four resolution paths
+    return `<button class="btn btn-p btn-sm" onclick="openResolve(${p.id})">Resolve ▾</button>`;
+  }
+  return '';
+}
+
+function toggleEditOrder(id){
+  const panel = document.getElementById('edit-panel-'+id);
+  if(!panel) return;
+  panel.style.display = panel.style.display === 'none' ? 'block' : 'none';
+}
+
+function saveEditOrder(id){
+  const p = D.orders.find(o => o.id == id);
+  if(!p) return;
+  const getVal = (prefix) => { const el = document.getElementById(prefix+'-'+id); return el ? el.value : undefined; };
+  const newNum = (getVal('edit-num')||'').trim();
+  if(!newNum){ showToast('Part number cannot be empty.'); return; }
+  p.partNum = newNum;
+  p.desc = getVal('edit-desc') || '';
+  p.brand = getVal('edit-brand') || '';
+  p.qty = parseInt(getVal('edit-qty')) || 1;
+  p.distributor = getVal('edit-dist') || p.distributor;
+  p.priority = getVal('edit-pri') || 'normal';
+  p.jobNum = (getVal('edit-jobnum')||'').trim();
+  p.type = getVal('edit-type') || p.type;
+  const triageEl = document.getElementById('edit-triage-'+id);
+  if(triageEl) p.triage = triageEl.checked;
+  save('orders');
+  renderOrders();
+  syncToSupabase('orders', D.orders);
+  showToast(p.partNum + ' updated.');
+}
+
+
 
 function escQ(s){ return (s||'').toString().replace(/"/g,'&quot;').replace(/'/g,'&#39;'); }
 
@@ -2844,8 +3415,8 @@ function adjInv(id,delta){
   const p=D.inventory.find(x=>x.id==id);if(!p)return;
   p.qty=Math.max(0,p.qty+delta);p.lastUpdated=today();
   if(delta<0)checkReorderTriggers(p);
-  dbUpdate('inventory', p.id, {qty: p.qty, lastUpdated: p.lastUpdated});
-  save('inventory');renderInv();
+  save('inventory'); renderInv();
+  syncToSupabase('inventory', D.inventory);
 }
 
 function transferPart(id,toLoc){
@@ -2925,8 +3496,9 @@ function renderReturns(){
 function markReturned(id){
   const r=D.returns.find(x=>x.id==id);if(!r)return;
   r.status='returned';r.returnedDate=today();
-  dbUpdate('returns', r.id, {status:'returned', returnedDate: r.returnedDate});
-  save('returns');updateBadges();renderReturns();showToast(`${r.partNum} marked returned.`);
+  save('returns'); updateBadges(); renderReturns();
+  syncToSupabase('returns', D.returns);
+  showToast(`${r.partNum} marked returned.`);
 }
 
 // ═══════════════════════════════════════════════════════
@@ -2986,8 +3558,11 @@ function saveJob(){
   const model=document.getElementById('jl-model').value.trim();if(!model){showToast('Enter a model number.');return;}
   const newJob = {id:Date.now(),date:document.getElementById('jl-date').value,tech:document.getElementById('jl-tech').value,jobNum:document.getElementById('jl-jobnum').value,customer:'',type:document.getElementById('jl-type').value,brand:document.getElementById('jl-brand').value,model,cat:document.getElementById('jl-cat').value,symptom:document.getElementById('jl-symptom').value,code:document.getElementById('jl-code').value,diag:document.getElementById('jl-diag').value,ftf:document.getElementById('jl-ftf').value,parts:document.getElementById('jl-parts').value,cost:document.getElementById('jl-cost').value,notes:document.getElementById('jl-notes').value,csrNotes:'',aiSummary:'',fromTriage:false};
   D.jobs.unshift(newJob);
-  dbInsert('job_log', newJob);
-  save('jobs');toggleJobForm();renderJobLog();showToast('Job saved to log.');
+  save('jobs');
+  toggleJobForm();
+  renderJobLog();
+  syncToSupabase('job_log', D.jobs);
+  showToast('Job saved to log.');
 }
 
 function exportJobsCSV(){
@@ -3123,7 +3698,6 @@ document.getElementById('main').style.display = 'none';
 (async () => {
   const ok = await initSupabase();
   if(!ok){
-    // Supabase failed to load — run in offline/local mode
     showOfflineBanner();
     document.getElementById('nav').style.display  = 'flex';
     document.getElementById('main').style.display = 'flex';
@@ -3131,12 +3705,32 @@ document.getElementById('main').style.display = 'none';
     return;
   }
   setupAuthListener();
+
+  // ── DEV MODE: skip login if a valid session already exists ────────────
+  // On file:// or localhost, restore the previous session automatically.
+  // On the live hosted URL (github.io) full login is always required.
+  const isLocal = location.protocol === 'file:' || location.hostname === 'localhost';
   const { data: { session } } = await sb.auth.getSession();
+
   if(session){
+    // Session exists (remembered from last login) — go straight in
     currentUser = session.user;
     const userEl = document.getElementById('nav-user');
     if(userEl) userEl.textContent = session.user.email;
     showApp();
+  } else if(isLocal){
+    // Local dev: try to restore from stored session token
+    // If no stored session, show login once — it will then persist
+    showLogin();
+    // Add a subtle dev mode indicator
+    const loginBox = document.querySelector('#login-screen > div');
+    if(loginBox){
+      const devBadge = document.createElement('div');
+      devBadge.style.cssText = 'position:absolute;top:10px;right:10px;background:rgba(245,166,35,.2);border:1px solid rgba(245,166,35,.4);border-radius:6px;padding:3px 8px;font-size:10px;color:#F5A623;font-weight:600;letter-spacing:.06em;';
+      devBadge.textContent = 'DEV';
+      loginBox.style.position='relative';
+      loginBox.appendChild(devBadge);
+    }
   } else {
     showLogin();
   }
@@ -3876,11 +4470,11 @@ function saveAddReturn(){
     addedDate: today(),
   };
   D.returns.unshift(entry);
-  dbInsert('returns', entry);
   save('returns');
   updateBadges();
   closeAddReturn();
   renderReturns();
+  syncToSupabase('returns', D.returns);
   const msg = addReturnType==='immediate'
     ? `${num} added as immediate return — contact ${dist}.`
     : `${num} added as triaged part. 25-day window from ${fmtDate(orderedDate)}.`;
@@ -3949,6 +4543,335 @@ function setSyncStatus(ok){
   if(ok){ el.textContent='● Synced'; el.style.color='var(--green)'; }
   else{ el.textContent='● Local only'; el.style.color='var(--amber)'; }
 }
+
+
+// ═══════════════════════════════════════════════════════
+// MANUAL PART ENTRY (scanner page)
+// ═══════════════════════════════════════════════════════
+function openManualPartEntry(){
+  document.getElementById('manual-part-form').style.display='block';
+  document.getElementById('mp-num').focus();
+}
+function closeManualPartEntry(){
+  document.getElementById('manual-part-form').style.display='none';
+  ['mp-num','mp-desc','mp-brand'].forEach(id=>{const el=document.getElementById(id);if(el)el.value='';});
+  const q=document.getElementById('mp-qty');if(q)q.value='1';
+}
+function getManualPartData(){
+  return {
+    partNum:(document.getElementById('mp-num').value||'').trim(),
+    desc:document.getElementById('mp-desc').value||'',
+    brand:document.getElementById('mp-brand').value||'',
+    cat:document.getElementById('mp-cat').value||'',
+    qty:parseInt(document.getElementById('mp-qty').value)||1,
+    distributor:document.getElementById('mp-dist').value||'',
+  };
+}
+function addToInvFromManual(){
+  const p=getManualPartData();
+  if(!p.partNum){showToast('Enter a part number.');return;}
+  const loc=D.locations[0]||'Warehouse / Shop';
+  const existing=D.inventory.find(x=>x.partNum.toLowerCase()===p.partNum.toLowerCase()&&x.loc===loc);
+  if(existing){existing.qty+=p.qty;existing.lastUpdated=today();}
+  else{
+    const np={id:Date.now(),partNum:p.partNum,desc:p.desc,brand:p.brand,cat:p.cat,qty:p.qty,loc,distributor:p.distributor,addedDate:today(),lastUpdated:today()};
+    D.inventory.push(np);
+    dbInsert('inventory',np);
+  }
+  save('inventory');
+  closeManualPartEntry();
+  showInventoryConfirmation(p.partNum,p.qty,0,loc);
+}
+function addToOrderFromManual(){
+  const p=getManualPartData();
+  if(!p.partNum){showToast('Enter a part number.');return;}
+  const order={id:Date.now(),partNum:p.partNum,desc:p.desc,brand:p.brand,qty:p.qty,distributor:p.distributor,tech:'Manual entry',priority:'normal',status:'pending',type:'daily',addedDate:today(),fulfillment:'shipped',availStatus:'unknown',jobNum:'',trackingNum:''};
+  D.orders.unshift(order);
+  dbInsert('orders',order);
+  save('orders');
+  updateBadges();
+  closeManualPartEntry();
+  showConfirmation(p.partNum,p.desc,p.qty,p.distributor,calcETA(p.distributor,today()),'daily');
+}
+
+
+// ═══════════════════════════════════════════════════════
+// MASTER LOG — every part ever tracked, searchable, reversible
+// ═══════════════════════════════════════════════════════
+function renderMasterLog(){
+  const div = document.getElementById('masterlog-list');
+  if(!div) return;
+  const q = (document.getElementById('ml-search')?.value || '').toLowerCase().trim();
+  const statusFilter = document.getElementById('ml-status-filter')?.value || '';
+  const resFilter = document.getElementById('ml-resolution-filter')?.value || '';
+
+  let items = D.orders.slice();
+  // Search filter
+  if(q){
+    items = items.filter(p =>
+      (p.partNum||'').toLowerCase().includes(q) ||
+      (p.desc||'').toLowerCase().includes(q) ||
+      (p.brand||'').toLowerCase().includes(q) ||
+      (p.jobNum||'').toLowerCase().includes(q) ||
+      (p.distributor||'').toLowerCase().includes(q) ||
+      (p.tech||'').toLowerCase().includes(q)
+    );
+  }
+  if(statusFilter) items = items.filter(p => (p.status||'pending') === statusFilter);
+  if(resFilter) items = items.filter(p => p.resolution === resFilter);
+
+  // Sort newest first by addedDate then id
+  items.sort((a,b) => (b.id||0) - (a.id||0));
+
+  const countEl = document.getElementById('ml-count');
+  if(countEl) countEl.textContent = items.length + ' part' + (items.length!==1?'s':'') + ' shown';
+
+  if(!items.length){
+    div.innerHTML = '<div style="background:var(--card);border:1px dashed var(--border);border-radius:9px;padding:24px;text-align:center;color:var(--muted);font-size:13px;">No parts match. Try a different search.</div>';
+    return;
+  }
+
+  let html = '';
+  items.forEach(p => {
+    const st = p.status || 'pending';
+    let statusBadge;
+    if(st === 'resolved'){
+      const resLabels = {installed:'Installed', inventory:'To inventory', triage_return:'Triage return', urgent_return:'Urgent return'};
+      const resColors = {installed:'b-green', inventory:'b-teal', triage_return:'b-coral', urgent_return:'b-red'};
+      statusBadge = `<span class="badge ${resColors[p.resolution]||'b-muted'}">${resLabels[p.resolution]||'Resolved'}</span>`;
+    } else if(st === 'received'){ statusBadge = '<span class="badge b-teal">Received</span>'; }
+    else if(st === 'ordered'){ statusBadge = '<span class="badge b-amber">Ordered</span>'; }
+    else { statusBadge = '<span class="badge b-muted">Pending</span>'; }
+
+    // Build timeline
+    const timeline = [];
+    if(p.addedDate) timeline.push('Added ' + fmtDate(p.addedDate));
+    if(p.orderedDate) timeline.push('Ordered ' + fmtDate(p.orderedDate));
+    if(p.receivedDate) timeline.push('Received ' + fmtDate(p.receivedDate));
+    if(p.resolvedDate) timeline.push('Resolved ' + fmtDate(p.resolvedDate));
+
+    html += `
+    <div style="background:var(--card);border:1px solid var(--border);border-radius:9px;margin-bottom:8px;padding:12px 14px;">
+      <div style="display:flex;align-items:center;justify-content:space-between;gap:10px;flex-wrap:wrap;margin-bottom:6px;">
+        <div style="display:flex;flex-wrap:wrap;gap:9px;align-items:center;flex:1;min-width:0;">
+          <span style="font-family:var(--mono);font-size:14px;font-weight:600;color:var(--teal);">${p.partNum||'(no part #)'}</span>
+          ${p.desc?`<span style="font-size:13px;">${p.desc}</span>`:''}
+          ${p.brand?`<span style="font-size:12px;color:var(--muted);">${p.brand}</span>`:''}
+          <span style="font-size:12px;color:var(--muted);">×${p.qty||1}</span>
+          ${statusBadge}
+          ${p.triage?`<span class="badge b-coral">Triage</span>`:''}
+          ${p.jobNum?`<span class="badge b-blue">Job #${p.jobNum}</span>`:''}
+        </div>
+        <div style="display:flex;gap:5px;flex-shrink:0;">
+          <button class="btn btn-g btn-sm" onclick="toggleEditMaster(${p.id})">✏ Edit</button>
+          <button class="btn btn-g btn-sm" onclick="reverseStatus(${p.id})">↶ Reverse</button>
+        </div>
+      </div>
+      <div style="display:flex;gap:14px;flex-wrap:wrap;font-size:11px;color:var(--muted);">
+        ${p.distributor?`<span>${p.distributor}</span>`:''}
+        ${p.tech?`<span>Req: ${p.tech}</span>`:''}
+        <span>${timeline.join('  →  ')}</span>
+      </div>
+      <div id="ml-edit-panel-${p.id}" style="display:none;margin-top:12px;padding-top:12px;border-top:1px solid var(--border);">
+        <div class="frow">
+          <div class="fw"><label class="lbl">Part #</label><input type="text" id="ml-num-${p.id}" value="${(p.partNum||'').replace(/"/g,'&quot;')}" style="font-family:var(--mono);"></div>
+          <div class="fw"><label class="lbl">Description</label><input type="text" id="ml-desc-${p.id}" value="${(p.desc||'').replace(/"/g,'&quot;')}"></div>
+          <div style="width:110px;"><label class="lbl">Job #</label><input type="text" id="ml-jobnum-${p.id}" value="${(p.jobNum||'').replace(/"/g,'&quot;')}"></div>
+        </div>
+        <div class="frow">
+          <div class="fw"><label class="lbl">Brand / unit</label><input type="text" id="ml-brand-${p.id}" value="${(p.brand||'').replace(/"/g,'&quot;')}"></div>
+          <div style="width:70px;"><label class="lbl">Qty</label><input type="number" id="ml-qty-${p.id}" value="${p.qty||1}" min="1"></div>
+          <div class="fw"><label class="lbl">Distributor</label>
+            <select id="ml-dist-${p.id}">
+              ${['Reliable — San Antonio','Reliable — Mesquite','PartsTown','Marcone','Encompass','APC','Other'].map(d=>`<option ${p.distributor===d?'selected':''}>${d}</option>`).join('')}
+            </select>
+          </div>
+          <div class="fw"><label class="lbl">Tech / ref</label><input type="text" id="ml-tech-${p.id}" value="${(p.tech||'').replace(/"/g,'&quot;')}"></div>
+        </div>
+        <div class="frow">
+          <div class="fw"><label class="lbl">Status</label>
+            <select id="ml-status-${p.id}">
+              <option value="pending" ${(p.status||'pending')==='pending'?'selected':''}>Pending</option>
+              <option value="ordered" ${p.status==='ordered'?'selected':''}>Ordered</option>
+              <option value="received" ${p.status==='received'?'selected':''}>Received</option>
+              <option value="resolved" ${p.status==='resolved'?'selected':''}>Resolved</option>
+            </select>
+          </div>
+          <div class="fw"><label class="lbl">List</label>
+            <select id="ml-type-${p.id}">
+              <option value="daily" ${p.type==='daily'?'selected':''}>Daily — Urgent</option>
+              <option value="weekly" ${p.type==='weekly'?'selected':''}>Weekly — Stock</option>
+            </select>
+          </div>
+          <div class="fw" style="display:flex;align-items:flex-end;">
+            <label style="display:flex;align-items:center;gap:8px;font-size:12px;cursor:pointer;padding-bottom:8px;">
+              <input type="checkbox" id="ml-triage-${p.id}" ${p.triage?'checked':''} style="width:16px;height:16px;"> Triage
+            </label>
+          </div>
+        </div>
+        <div class="arow">
+          <button class="btn btn-p btn-sm" onclick="saveEditMaster(${p.id})">Save changes</button>
+          <button class="btn btn-m btn-sm" onclick="toggleEditMaster(${p.id})">Cancel</button>
+        </div>
+      </div>
+    </div>`;
+  });
+  div.innerHTML = html;
+}
+
+
+function toggleEditMaster(id){
+  const panel = document.getElementById('ml-edit-panel-'+id);
+  if(!panel) return;
+  panel.style.display = panel.style.display === 'none' ? 'block' : 'none';
+}
+
+function saveEditMaster(id){
+  const p = D.orders.find(o => o.id == id);
+  if(!p) return;
+  const getVal = (prefix) => { const el = document.getElementById(prefix+'-'+id); return el ? el.value : undefined; };
+  const newNum = (getVal('ml-num')||'').trim();
+  if(!newNum){ showToast('Part number cannot be empty.'); return; }
+  p.partNum = newNum;
+  p.desc = getVal('ml-desc') || '';
+  p.brand = getVal('ml-brand') || '';
+  p.qty = parseInt(getVal('ml-qty')) || 1;
+  p.distributor = getVal('ml-dist') || p.distributor;
+  p.tech = getVal('ml-tech') || '';
+  p.jobNum = (getVal('ml-jobnum')||'').trim();
+  p.type = getVal('ml-type') || p.type;
+  const newStatus = getVal('ml-status') || p.status;
+  // If status changed, stamp the relevant date
+  if(newStatus !== p.status){
+    if(newStatus === 'ordered' && !p.orderedDate) p.orderedDate = today();
+    if(newStatus === 'received' && !p.receivedDate) p.receivedDate = today();
+    if(newStatus === 'resolved' && !p.resolvedDate) p.resolvedDate = today();
+    p.status = newStatus;
+  }
+  const triageEl = document.getElementById('ml-triage-'+id);
+  if(triageEl) p.triage = triageEl.checked;
+  save('orders');
+  updateBadges();
+  renderMasterLog();
+  if(typeof renderOrders === 'function') renderOrders();
+  syncToSupabase('orders', D.orders);
+  showToast(p.partNum + ' updated.');
+}
+
+function exportMasterLog(){
+  const rows = [['Part #','Description','Brand','Qty','Job #','Distributor','Tech','Status','Resolution','Added','Ordered','Received','Resolved']];
+  D.orders.forEach(p => {
+    rows.push([p.partNum||'', p.desc||'', p.brand||'', p.qty||1, p.jobNum||'', p.distributor||'', p.tech||'', p.status||'pending', p.resolution||'', p.addedDate||'', p.orderedDate||'', p.receivedDate||'', p.resolvedDate||'']);
+  });
+  const csv = rows.map(r => r.map(c => '"'+String(c).replace(/"/g,'""')+'"').join(',')).join('\n');
+  const blob = new Blob([csv], {type:'text/csv'});
+  const a = document.createElement('a');
+  a.href = URL.createObjectURL(blob);
+  a.download = 'ca_master_log_' + today() + '.csv';
+  a.click();
+  showToast('Master log exported.');
+}
+
+// ── REVERSIBILITY — step any status backward, clean up side effects ──
+function reverseStatus(id){
+  const p = D.orders.find(x => x.id == id);
+  if(!p) return;
+  const st = p.status || 'pending';
+
+  if(st === 'pending'){
+    showToast(p.partNum + ' is already at the first stage — nothing to reverse.');
+    return;
+  }
+
+  let msg, action;
+  if(st === 'resolved'){
+    const resLabels = {installed:'installed', inventory:'inventory', triage_return:'triage return', urgent_return:'urgent return'};
+    msg = `Reverse "${resLabels[p.resolution]||'resolved'}" and put ${p.partNum} back to Received?`;
+    action = () => {
+      // Clean up side effects of the resolution
+      if(p.resolution === 'triage_return' || p.resolution === 'urgent_return'){
+        // Remove the returns record this created
+        D.returns = D.returns.filter(r => !(r.partNum === p.partNum && r.orderedDate === (p.orderedDate||r.orderedDate) && r.status !== 'returned'));
+        save('returns');
+        if(typeof renderReturns === 'function') renderReturns();
+      }
+      if(p.resolution === 'inventory'){
+        // Note: we don't auto-remove inventory since stock may have moved; warn instead
+        // Just flag for manual review
+      }
+      p.status = 'received';
+      p.resolution = null;
+      p.resolvedDate = null;
+    };
+  } else if(st === 'received'){
+    msg = `Put ${p.partNum} back to Ordered?`;
+    action = () => { p.status = 'ordered'; p.receivedDate = null; };
+  } else if(st === 'ordered'){
+    msg = `Put ${p.partNum} back to Pending? This clears the order date and 25-day clock.`;
+    action = () => { p.status = 'pending'; p.orderedDate = null; };
+  }
+
+  if(confirm(msg)){
+    const wasInventory = (p.resolution === 'inventory');
+    action();
+    save('orders');
+    updateBadges();
+    renderMasterLog();
+    if(typeof renderOrders === 'function') renderOrders();
+    syncToSupabase('orders', D.orders);
+    if(wasInventory){
+      showToast(p.partNum + ' back to Received. Note: any inventory stock created was NOT auto-removed — adjust inventory manually if needed.');
+    } else {
+      showToast(p.partNum + ' reversed one step.');
+    }
+  }
+}
+
+
+
+// ═══════════════════════════════════════════════════════
+// DUPLICATE DETECTION — warn if part # already in system
+// ═══════════════════════════════════════════════════════
+function findDuplicates(partNum){
+  if(!partNum) return {orders:[], inventory:[]};
+  const pn = partNum.toLowerCase().trim();
+  // Active orders (not resolved) with this part number
+  const orderMatches = D.orders.filter(o =>
+    (o.partNum||'').toLowerCase().trim() === pn && o.status !== 'resolved'
+  );
+  // Inventory with this part number and qty > 0
+  const invMatches = D.inventory.filter(i =>
+    (i.partNum||'').toLowerCase().trim() === pn && (i.qty||0) > 0
+  );
+  return {orders: orderMatches, inventory: invMatches};
+}
+
+function buildDuplicateWarning(partNum){
+  const dup = findDuplicates(partNum);
+  if(!dup.orders.length && !dup.inventory.length) return null;
+  let parts = [];
+  dup.orders.forEach(o => {
+    const st = o.status || 'pending';
+    parts.push(`already on the ${o.type} order list (${st}${o.jobNum?', job #'+o.jobNum:''})`);
+  });
+  dup.inventory.forEach(i => {
+    parts.push(`${i.qty} in stock at ${i.loc}`);
+  });
+  return parts;
+}
+
+// Live check as the user types the part number
+function checkDuplicateLive(){
+  const num = (document.getElementById('ao-num')?.value || '').trim();
+  const warnEl = document.getElementById('ao-dup-warning');
+  if(!warnEl) return;
+  if(!num){ warnEl.style.display = 'none'; return; }
+  const warnings = buildDuplicateWarning(num);
+  if(!warnings){ warnEl.style.display = 'none'; return; }
+  warnEl.style.display = 'block';
+  warnEl.innerHTML = `<span style="font-size:14px;">⚠</span> <strong>${num}</strong> is ${warnings.join(' · ')}. You can still add it if you need another.`;
+}
+
 
 // drag-drop on scan box
 const scanDrop=document.getElementById('scan-drop');
