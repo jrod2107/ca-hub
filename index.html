@@ -405,6 +405,7 @@ tr:hover td{background:rgba(0,201,177,.03);}
   <div class="nav-trace">
     <button class="ni" data-page="joblog"><div class="ni-dot"></div><span class="ni-icon">📒</span>Job Log</button>
     <button class="ni" data-page="masterlog"><div class="ni-dot"></div><span class="ni-icon">🗂️</span>Master Log</button>
+    <button class="ni" data-page="picklist"><div class="ni-dot"></div><span class="ni-icon">🚚</span>Pick List<span class="ni-badge" id="badge-picklist" style="display:none;">0</span></button>
     <button class="ni" data-page="followup"><div class="ni-dot"></div><span class="ni-icon">📞</span>Follow-ups<span class="ni-badge" id="badge-followup" style="display:none;">0</span></button>
     <button class="ni" data-page="kb"><div class="ni-dot"></div><span class="ni-icon">📚</span>Knowledge Base</button>
   </div>
@@ -457,7 +458,17 @@ tr:hover td{background:rgba(0,201,177,.03);}
       <div style="font-size:11px;color:var(--muted);">Auto-fills from triage</div>
     </div>
   </div>
+  <div id="backup-reminder" style="display:none;background:rgba(245,166,35,.12);border:1px solid var(--amber);border-radius:10px;padding:14px 16px;margin-bottom:14px;">
+    <div style="display:flex;align-items:center;justify-content:space-between;gap:12px;flex-wrap:wrap;">
+      <div>
+        <div style="font-size:13px;font-weight:600;color:var(--amber);">⚠ Weekly backup due</div>
+        <div style="font-size:11px;color:var(--muted);" id="backup-reminder-msg">Time to back up your data.</div>
+      </div>
+      <button class="btn btn-p btn-sm" onclick="exportEverything()">⬇ Export everything now</button>
+    </div>
+  </div>
   <div id="home-alerts"></div>
+  <div id="home-loadout" style="margin-bottom:14px;"></div>
   <div class="g2">
     <div class="card">
       <div class="card-label" style="margin-bottom:10px;">Today's urgent orders</div>
@@ -752,6 +763,7 @@ tr:hover td{background:rgba(0,201,177,.03);}
       <div style="width:70px;"><label class="lbl">Qty</label><input type="number" id="ao-qty" value="1" min="1"></div>
       <div class="fw"><label class="lbl">Distributor</label>
         <select id="ao-dist">
+          <option value="Not set">Not set — needs sourcing</option>
           <option>Reliable — San Antonio</option>
           <option>Reliable — Mesquite</option>
           <option>PartsTown</option>
@@ -838,6 +850,23 @@ tr:hover td{background:rgba(0,201,177,.03);}
 
   <div id="ml-count" style="font-size:11px;color:var(--muted);margin-bottom:10px;"></div>
   <div id="masterlog-list"></div>
+</div>
+
+<!-- ══ PICK LIST ══ -->
+<div class="page" id="page-picklist">
+  <div class="pg-title">Pick List</div>
+  <div class="pg-sub">Parts to load on the truck, by day. Received parts with a scheduled return visit.</div>
+
+  <div class="frow" style="margin-bottom:14px;align-items:center;">
+    <button class="btn btn-g btn-sm" onclick="pickListShiftDay(-1)">‹ Prev</button>
+    <input type="date" id="picklist-date" onchange="renderPickList()" style="width:auto;">
+    <button class="btn btn-g btn-sm" onclick="pickListShiftDay(1)">Next ›</button>
+    <button class="btn btn-p btn-sm" onclick="pickListToday()">Today</button>
+    <button class="btn btn-g btn-sm" onclick="exportPickList()">⬇ Export</button>
+  </div>
+
+  <div id="picklist-warnings" style="margin-bottom:14px;"></div>
+  <div id="picklist-content"></div>
 </div>
 
 <!-- ══ INVENTORY ══ -->
@@ -1564,6 +1593,20 @@ tr:hover td{background:rgba(0,201,177,.03);}
 <div class="page" id="page-settings">
   <div class="pg-title">Settings</div>
   <div class="pg-sub">Locations, stock list, reorder thresholds, pricing, and vendor chain.</div>
+  <div class="card" id="admin-only-section" style="display:none;margin-bottom:16px;border-color:var(--teal-d);">
+    <div class="card-label" style="margin-bottom:10px;">🔐 Admin accounts & backup</div>
+    <div style="font-size:12px;color:var(--muted);margin-bottom:12px;">These email addresses see the weekly backup reminder and can export everything. Techs don't see backup tools.</div>
+    <div id="admin-emails-list" style="margin-bottom:10px;"></div>
+    <div class="frow" style="margin-bottom:14px;">
+      <div class="fw"><input type="email" id="admin-email-input" placeholder="add-admin@email.com"></div>
+      <button class="btn btn-p btn-sm" onclick="addAdminEmail()">Add admin</button>
+    </div>
+    <div style="border-top:1px solid var(--border);padding-top:14px;">
+      <button class="btn btn-p btn-sm" onclick="exportEverything()">⬇ Export everything now</button>
+      <div style="font-size:11px;color:var(--muted);margin-top:6px;" id="settings-last-backup"></div>
+    </div>
+  </div>
+
 
   <div class="settings-section">
     <h3>Locations</h3>
@@ -1701,9 +1744,83 @@ async function initSupabase(){
 function setupAuthListener(){
   sb.auth.onAuthStateChange((event, session) => {
     currentUser = session?.user || null;
-    if(event === 'SIGNED_IN')  showApp();
+    // Password recovery: user arrived via reset link — show set-new-password screen
+    if(event === 'PASSWORD_RECOVERY'){
+      showPasswordReset();
+      return;
+    }
+    if(event === 'SIGNED_IN'){
+      // Don't bounce into the app if we're in the middle of a recovery
+      if(window._inPasswordRecovery){ showPasswordReset(); return; }
+      showApp();
+    }
     if(event === 'SIGNED_OUT') showLogin();
   });
+}
+
+// Detect recovery token in the URL hash on load (Supabase puts type=recovery there)
+function checkForRecovery(){
+  const hash = window.location.hash || '';
+  if(hash.includes('type=recovery')){
+    window._inPasswordRecovery = true;
+    showPasswordReset();
+    return true;
+  }
+  return false;
+}
+
+function showPasswordReset(){
+  window._inPasswordRecovery = true;
+  // Hide app + login, show the reset screen
+  const nav = document.getElementById('nav'); if(nav) nav.style.display='none';
+  const main = document.getElementById('main'); if(main) main.style.display='none';
+  const login = document.getElementById('login-screen'); if(login) login.style.display='none';
+
+  let screen = document.getElementById('pwreset-screen');
+  if(!screen){
+    screen = document.createElement('div');
+    screen.id = 'pwreset-screen';
+    screen.style.cssText = 'position:fixed;inset:0;background:var(--bg,#0D1B2A);z-index:1000;display:flex;align-items:center;justify-content:center;padding:20px;';
+    screen.innerHTML = `
+      <div style="background:var(--panel,#15263A);border:1px solid var(--border,#2C4055);border-radius:14px;padding:30px;width:100%;max-width:400px;">
+        <div style="font-family:var(--cond),sans-serif;font-size:22px;font-weight:700;margin-bottom:6px;color:var(--text,#E6EDF5);">Set a new password</div>
+        <div style="font-size:12px;color:var(--muted,#7C92A8);margin-bottom:20px;">Choose a new password for your account.</div>
+        <label style="font-size:11px;color:var(--muted,#7C92A8);display:block;margin-bottom:5px;">New password</label>
+        <input type="password" id="pwreset-new" placeholder="At least 6 characters" style="width:100%;padding:11px;border:1px solid var(--border,#2C4055);border-radius:8px;background:var(--card,#1B2D44);color:var(--text,#E6EDF5);margin-bottom:14px;font-size:14px;">
+        <label style="font-size:11px;color:var(--muted,#7C92A8);display:block;margin-bottom:5px;">Confirm password</label>
+        <input type="password" id="pwreset-confirm" placeholder="Re-enter password" style="width:100%;padding:11px;border:1px solid var(--border,#2C4055);border-radius:8px;background:var(--card,#1B2D44);color:var(--text,#E6EDF5);margin-bottom:18px;font-size:14px;">
+        <button onclick="submitPasswordReset()" style="width:100%;padding:12px;background:var(--teal,#00C9B1);color:#04231e;border:none;border-radius:8px;font-weight:700;font-size:14px;cursor:pointer;">Update password</button>
+        <div id="pwreset-msg" style="font-size:12px;margin-top:12px;text-align:center;min-height:16px;"></div>
+      </div>`;
+    document.body.appendChild(screen);
+  }
+  screen.style.display = 'flex';
+}
+
+async function submitPasswordReset(){
+  const pw = document.getElementById('pwreset-new').value;
+  const confirm = document.getElementById('pwreset-confirm').value;
+  const msg = document.getElementById('pwreset-msg');
+  if(pw.length < 6){ msg.style.color='var(--amber,#F5A623)'; msg.textContent='Password must be at least 6 characters.'; return; }
+  if(pw !== confirm){ msg.style.color='var(--amber,#F5A623)'; msg.textContent='Passwords do not match.'; return; }
+  msg.style.color='var(--muted,#7C92A8)'; msg.textContent='Updating…';
+  try{
+    const { error } = await sb.auth.updateUser({ password: pw });
+    if(error) throw error;
+    msg.style.color='var(--teal,#00C9B1)';
+    msg.textContent='Password updated! Signing you in…';
+    window._inPasswordRecovery = false;
+    // Clear the recovery hash from the URL
+    history.replaceState(null, '', window.location.pathname);
+    setTimeout(() => {
+      const screen = document.getElementById('pwreset-screen');
+      if(screen) screen.style.display='none';
+      showApp();
+    }, 1200);
+  }catch(e){
+    msg.style.color='var(--red,#E84060)';
+    msg.textContent='Error: ' + e.message;
+  }
 }
 
 
@@ -1718,6 +1835,8 @@ const D = {
   locations: JSON.parse(localStorage.getItem('ca_setting_locations') || localStorage.getItem('ca_locs') || JSON.stringify(['Warehouse / Shop','Van 1'])),
   stockList: JSON.parse(localStorage.getItem('ca_setting_stock_list') || localStorage.getItem('ca_stock') || JSON.stringify(defaultStock())),
   rates:     JSON.parse(localStorage.getItem('ca_setting_rates') || localStorage.getItem('ca_rates')    || JSON.stringify({res:150,comm:185,pro:165,ship:15,sameday:25})),
+  adminEmails: JSON.parse(localStorage.getItem('ca_setting_admin_emails') || JSON.stringify(['jrod@mycityappliance.com'])),
+  lastBackup: localStorage.getItem('ca_setting_last_backup') || '',
 };
 function save(k){
   localStorage.setItem('ca_sb_'+k, JSON.stringify(D[k]));
@@ -1855,9 +1974,9 @@ function toCamel(obj){
 // Prevents "could not find column X" 400 errors permanently.
 // ═══════════════════════════════════════════════════════
 var DB_COLUMNS = {
-  orders: ['id','user_id','part_num','description','brand','qty','distributor','tech','priority','status','type','added_date','ordered_date','received_date','resolved_date','resolution','fulfillment','avail_status','job_num','serial','triage','tracking_num'],
+  orders: ['id','user_id','part_num','description','brand','qty','distributor','tech','priority','status','type','added_date','ordered_date','received_date','resolved_date','resolution','fulfillment','avail_status','job_num','serial','triage','tracking_num','eta_override','notes','return_date','return_slot'],
   inventory: ['id','user_id','part_num','description','brand','cat','qty','loc','distributor','added_date','last_updated'],
-  returns: ['id','user_id','part_num','description','brand','qty','distributor','ordered_date','returned_date','status','return_type','job_num','notes','added_date'],
+  returns: ['id','user_id','part_num','description','brand','qty','distributor','loc','ordered_date','returned_date','status','return_type','job_num','notes','added_date'],
   job_log: ['id','user_id','job_num','hcp_url','brand','model','serial','issue','resolution','parts_used','tech','status','created_date','notes']
 };
 
@@ -2115,6 +2234,16 @@ async function loadSettings(){
     }catch(e){ console.warn('Settings load failed:', e.message); }
   }
   renderSettings();
+  // Admin section — only visible to admins
+  const adminSec = document.getElementById('admin-only-section');
+  if(adminSec){
+    adminSec.style.display = isAdmin() ? 'block' : 'none';
+    if(isAdmin()){
+      renderAdminEmails();
+      const lb = document.getElementById('settings-last-backup');
+      if(lb) lb.textContent = D.lastBackup ? ('Last backup: ' + D.lastBackup) : 'No backup recorded yet.';
+    }
+  }
 }
 
 async function saveSetting(key, value){
@@ -2161,7 +2290,7 @@ function navTo(page){
   document.getElementById('page-'+page).classList.add('active');
   const btn=document.querySelector(`.ni[data-page="${page}"]`);
   if(btn) btn.classList.add('active');
-  const titles={home:'Home',triage:'Lookup + Triage',scanner:'Parts Scanner',orders:'Order List',inventory:'Inventory',returns:'Returns',arrivals:'Arrivals',joblog:'Job Log',masterlog:'Master Log',followup:'Follow-ups',kb:'Knowledge Base',settings:'Settings'};
+  const titles={home:'Home',triage:'Lookup + Triage',scanner:'Parts Scanner',orders:'Order List',inventory:'Inventory',returns:'Returns',arrivals:'Arrivals',joblog:'Job Log',masterlog:'Master Log',picklist:'Pick List',followup:'Follow-ups',kb:'Knowledge Base',settings:'Settings'};
   document.getElementById('topbar-title').textContent=titles[page]||page;
   closeNav();
   if(page==='home') refreshHome();
@@ -2171,6 +2300,7 @@ function navTo(page){
   if(page==='arrivals'){ renderArrivals(); }
   if(page==='joblog'){ loadJobs(); renderPendingBanner(); }
   if(page==='masterlog'){ renderMasterLog(); }
+  if(page==='picklist'){ renderPickList(); }
   if(page==='followup'){ renderFollowUps(); }
   if(page==='settings'){ loadSettings(); }
   if(page==='kb'){ renderKB(); }
@@ -2645,7 +2775,7 @@ function closeAddOrder(){
 function saveOrderItem(){
   var num = ((document.getElementById('ao-num') || {}).value || '').trim();
   if(!num){ showToast('Enter a part number.'); return; }
-  var dist = (document.getElementById('ao-dist') || {}).value || 'Reliable — San Antonio';
+  var dist = (document.getElementById('ao-dist') || {}).value || 'Not set';
   var listType = (document.getElementById('ao-list-type') || {}).value || 'daily';
   var order = {
     id: Date.now(),
@@ -2665,6 +2795,7 @@ function saveOrderItem(){
     serial: (document.getElementById('ao-serial') || {}).value || '',
     triage: ((document.getElementById('ao-triage') || {}).checked) || false,
     trackingNum: '',
+    etaOverride: '',
   };
   D.orders.unshift(order);
   save('orders');
@@ -2808,10 +2939,21 @@ function resolvePart(id, outcome){
 
 
 
-function deleteOrder(id){
+async function deleteOrder(id){
+  if(!confirm('Remove this part from the order list?')) return;
   D.orders = D.orders.filter(function(x){ return x.id != id; });
   save('orders'); updateBadges(); renderOrders();
-  syncToSupabase('orders', D.orders);
+  // Actually delete the row from Supabase (not just re-sync)
+  if(sb && isOnline){
+    try{
+      const { error } = await sb.from('orders').delete().eq('id', id);
+      if(error) throw error;
+      setSyncStatus(true);
+    }catch(e){
+      setSyncStatus(false);
+      console.warn('Delete from Supabase failed:', e.message);
+    }
+  }
   showToast('Part removed from order list.');
 }
 
@@ -2898,24 +3040,81 @@ function openMPHSearch(){
 // ═══════════════════════════════════════════════════════
 // ETA CALCULATION
 // ═══════════════════════════════════════════════════════
-function calcETA(distributor, fromDate){
-  if(!fromDate) fromDate = today();
-  const dist = (distributor || '').toLowerCase();
-  let leadDays = 2; // default
-  if(dist.includes('san antonio')) leadDays = 1;       // Reliable SA = next day
-  else if(dist.includes('mesquite')) leadDays = 2;      // Reliable Mesquite = 2 days
-  else if(dist.includes('partstown')) leadDays = 2;
-  else if(dist.includes('marcone')) leadDays = 2;
-  else if(dist.includes('encompass')) leadDays = 2;
-  else if(dist.includes('apc')) leadDays = 3;
-  // Calculate arrival date, skipping weekends
-  const d = new Date(fromDate + 'T12:00:00');
+// Vendor shipping rules: lead days + daily cutoff hour (24h, Central Time)
+var VENDOR_RULES = {
+  'reliable — san antonio': { lead: 1, cutoffHour: 15, cutoffMin: 45 }, // next day if before 3:45pm
+  'reliable — mesquite':    { lead: 2, cutoffHour: 15, cutoffMin: 45 },
+  'encompass':              { lead: 2, cutoffHour: 13, cutoffMin: 0  }, // 1:00pm CT cutoff
+  'marcone':                { lead: 2, cutoffHour: 17, cutoffMin: 0  }, // 5:00pm cutoff
+  'partstown':              { lead: 2, cutoffHour: 15, cutoffMin: 0  },
+  'apc':                    { lead: 3, cutoffHour: 15, cutoffMin: 0  },
+};
+
+// Returns a human note about cutoff status for a vendor ordered right now
+function cutoffNote(distributor){
+  const dist = (distributor || '').toLowerCase().trim();
+  if(!dist || dist.includes('not set')) return '';
+  const rule = VENDOR_RULES[dist];
+  if(!rule) return '';
+  const now = new Date();
+  const h = now.getHours(), m = now.getMinutes();
+  const pastCutoff = (h > rule.cutoffHour) || (h === rule.cutoffHour && m > rule.cutoffMin);
+  const cutoffStr = formatCutoffTime(rule.cutoffHour, rule.cutoffMin);
+  if(pastCutoff){
+    return '⚠ Past ' + cutoffStr + ' cutoff — ships next business day';
+  } else {
+    return '✓ Before ' + cutoffStr + ' cutoff — can ship today';
+  }
+}
+
+function formatCutoffTime(h, m){
+  const ampm = h >= 12 ? 'pm' : 'am';
+  let hh = h % 12; if(hh === 0) hh = 12;
+  return hh + (m > 0 ? ':' + String(m).padStart(2,'0') : '') + ampm;
+}
+
+
+
+function addBusinessDays(date, days){
+  const d = new Date(date);
   let added = 0;
-  while(added < leadDays){
+  while(added < days){
     d.setDate(d.getDate() + 1);
     const dow = d.getDay();
-    if(dow !== 0 && dow !== 6) added++; // skip Sat(6) and Sun(0)
+    if(dow !== 0 && dow !== 6) added++;
   }
+  return d;
+}
+
+// Returns an ETA string. If vendor not set/recognized -> "ETA pending".
+// Accounts for cutoff: if ordered after cutoff, add one business day.
+function calcETA(distributor, fromDate, orderHour, orderMin){
+  const dist = (distributor || '').toLowerCase().trim();
+  // No vendor set or "needs sourcing" -> pending
+  if(!dist || dist.includes('not set') || dist.includes('needs sourcing') || dist.includes('pending')){
+    return 'ETA pending';
+  }
+  // Find matching rule
+  let rule = VENDOR_RULES[dist];
+  if(!rule){
+    // partial match fallback
+    for(const key in VENDOR_RULES){
+      if(dist.includes(key.split(' — ')[0]) && (key.includes(dist) || dist.includes(key.split(' — ')[1]||''))){ rule = VENDOR_RULES[key]; break; }
+    }
+  }
+  if(!rule){
+    // vendor named but unknown rule
+    return 'ETA pending — confirm with vendor';
+  }
+  if(!fromDate) fromDate = today();
+  let lead = rule.lead;
+  // Cutoff check: if we know the order time and it's past cutoff, push start by a day
+  if(orderHour !== undefined && orderHour !== null){
+    const pastCutoff = (orderHour > rule.cutoffHour) || (orderHour === rule.cutoffHour && (orderMin||0) > rule.cutoffMin);
+    if(pastCutoff) lead += 1;
+  }
+  let d = new Date(fromDate + 'T12:00:00');
+  d = addBusinessDays(d, lead);
   return 'ETA ' + d.toLocaleDateString('en-US',{weekday:'short',month:'short',day:'numeric'});
 }
 
@@ -2971,22 +3170,18 @@ function buildEditPanel(p, type){
   </div>`;
 }
 
-function renderOrderSection(type, containerId){
-  const div = document.getElementById(containerId);
-  if(!div) return;
-  // Only show parts NOT yet resolved (resolved parts live in master log)
-  const items = D.orders.filter(o => o.type === type && o.status !== 'resolved');
-  if(!items.length){
-    div.innerHTML = `<div style="background:var(--card);border:1px dashed var(--border);border-radius:9px;padding:20px;text-align:center;color:var(--muted);font-size:13px;">No parts on the ${type} list yet.</div>`;
-    return;
-  }
-  // Sort: pending first, then ordered, then received
-  const order = {pending:0, ordered:1, received:2};
-  items.sort((a,b) => (order[a.status]??0) - (order[b.status]??0));
-  let html = '';
-  items.forEach(p => {
+function buildOrderRow(p){
+
     const st = p.status || 'pending';
-    const eta = calcETA(p.distributor, p.addedDate || p.orderedDate || today());
+    // ETA: manual override wins, else calculated (cutoff-aware once ordered)
+    let eta;
+    if(p.etaOverride){
+      eta = 'ETA ' + p.etaOverride + ' (set)';
+    } else {
+      const oh = p.orderedDate ? null : null; // cutoff applied at order time below
+      eta = calcETA(p.distributor, p.orderedDate || p.addedDate || today());
+    }
+    const needsVendor = !p.distributor || p.distributor.toLowerCase().includes('not set');
     // Status badge + border color
     let statusBadge, borderColor;
     if(st === 'received'){ statusBadge = '<span class="badge b-teal">● Received</span>'; borderColor = 'var(--teal-d)'; }
@@ -2999,7 +3194,7 @@ function renderOrderSection(type, containerId){
       const clr = daysLeft <= 5 ? 'var(--red)' : daysLeft <= 10 ? 'var(--amber)' : 'var(--muted)';
       returnInfo = `<span style="font-size:11px;color:${clr};">↩ ${daysLeft}d return window</span>`;
     }
-    html += `
+    let html = `
     <div style="background:var(--card);border:1px solid ${borderColor};border-radius:9px;margin-bottom:8px;overflow:hidden;" id="order-row-${p.id}">
       <div style="padding:12px 14px;">
         <div style="display:flex;align-items:center;justify-content:space-between;gap:10px;flex-wrap:wrap;margin-bottom:8px;">
@@ -3017,8 +3212,12 @@ function renderOrderSection(type, containerId){
         </div>
         <div style="display:flex;align-items:center;justify-content:space-between;gap:10px;flex-wrap:wrap;">
           <div style="display:flex;gap:12px;flex-wrap:wrap;font-size:11px;color:var(--muted);align-items:center;">
-            ${p.distributor?`<span>${p.distributor}</span>`:''}
-            <span>${eta}</span>
+            ${needsVendor?`<span style="color:var(--amber);">⚑ Needs sourcing</span>`:`<span>${p.distributor}</span>`}
+            <span style="${eta.includes('pending')?'color:var(--amber);':''}">${eta}</span>
+            ${(p.status||'pending')==='pending' && !needsVendor && cutoffNote(p.distributor) ? `<span style="font-size:11px;${cutoffNote(p.distributor).includes('Past')?'color:var(--amber);':'color:var(--teal);'}">${cutoffNote(p.distributor)}</span>` : ''}
+            ${p.trackingNum?`<span style="color:var(--teal);">📦 ${p.trackingNum}</span>`:''}
+            ${p.notes?`<span style="color:var(--blue);" title="${(p.notes||'').replace(/"/g,'&quot;')}">📝 Notes</span>`:''}
+            ${p.returnDate?`<span style="color:var(--teal);">📅 ${fmtDate(p.returnDate)}${p.returnSlot?' '+p.returnSlot:''}</span>`:''}
             ${returnInfo}
           </div>
           <div style="display:flex;gap:5px;flex-wrap:wrap;flex-shrink:0;">
@@ -3038,7 +3237,7 @@ function renderOrderSection(type, containerId){
           <div style="width:70px;"><label class="lbl">Qty</label><input type="number" id="edit-qty-${p.id}" value="${p.qty||1}" min="1"></div>
           <div class="fw"><label class="lbl">Distributor</label>
             <select id="edit-dist-${p.id}">
-              ${['Reliable — San Antonio','Reliable — Mesquite','PartsTown','Marcone','Encompass','APC','Other'].map(d=>`<option ${p.distributor===d?'selected':''}>${d}</option>`).join('')}
+              ${['Not set','Reliable — San Antonio','Reliable — Mesquite','PartsTown','Marcone','Encompass','APC','Other'].map(d=>`<option ${p.distributor===d?'selected':''}>${d==='Not set'?'Not set — needs sourcing':d}</option>`).join('')}
             </select>
           </div>
           <div class="fw"><label class="lbl">Priority</label>
@@ -3054,6 +3253,23 @@ function renderOrderSection(type, containerId){
             </select>
           </div>
         </div>
+        <div class="frow">
+          <div class="fw"><label class="lbl">Tracking ID</label><input type="text" id="edit-tracking-${p.id}" value="${(p.trackingNum||'').replace(/"/g,'&quot;')}" style="font-family:var(--mono);" placeholder="Carrier tracking number"></div>
+          <div class="fw"><label class="lbl">ETA override <span style="color:var(--muted);font-weight:400;">(leave blank to auto-calc)</span></label><input type="date" id="edit-eta-${p.id}" value="${p.etaOverride||''}"></div>
+        </div>
+        <div class="frow">
+          <div class="fw"><label class="lbl">📅 Return visit date</label><input type="date" id="edit-retdate-${p.id}" value="${p.returnDate||''}"></div>
+          <div class="fw"><label class="lbl">Slot</label>
+            <select id="edit-retslot-${p.id}">
+              <option value="" ${!p.returnSlot?'selected':''}>—</option>
+              <option value="AM" ${p.returnSlot==='AM'?'selected':''}>AM</option>
+              <option value="PM" ${p.returnSlot==='PM'?'selected':''}>PM</option>
+            </select>
+          </div>
+        </div>
+        <div class="frow">
+          <div class="fw" style="flex-basis:100%;"><label class="lbl">Notes — customer comms, what they were told, etc.</label><textarea id="edit-notes-${p.id}" rows="3" style="width:100%;resize:vertical;" placeholder="e.g. Told customer part arrives Thu. Customer prefers Fri AM. Confirmed Fri 6/27.">${(p.notes||'').replace(/</g,'&lt;')}</textarea></div>
+        </div>
         <div style="margin-bottom:10px;">
           <label style="display:flex;align-items:center;gap:8px;font-size:12px;cursor:pointer;color:var(--text);">
             <input type="checkbox" id="edit-triage-${p.id}" ${p.triage?'checked':''} style="width:16px;height:16px;">
@@ -3066,7 +3282,52 @@ function renderOrderSection(type, containerId){
         </div>
       </div>
     </div>`;
-  });
+  return html;
+}
+
+function renderOrderSection(type, containerId){
+  const div = document.getElementById(containerId);
+  if(!div) return;
+  const items = D.orders.filter(o => o.type === type && o.status !== 'resolved');
+  if(!items.length){
+    div.innerHTML = `<div style="background:var(--card);border:1px dashed var(--border);border-radius:9px;padding:20px;text-align:center;color:var(--muted);font-size:13px;">No parts on the ${type} list yet.</div>`;
+    return;
+  }
+  const needsOrdering = items.filter(o => (o.status||'pending') === 'pending');
+  const enRoute = items.filter(o => o.status === 'ordered' || o.status === 'received' || o.status === 'pickup_confirmed');
+
+  const cartColor = type === 'weekly' ? '#6BA8E5' : 'var(--amber)';
+  const cartBg = type === 'weekly'
+    ? 'linear-gradient(135deg,rgba(24,95,165,.14),rgba(0,201,177,.08))'
+    : 'linear-gradient(135deg,rgba(245,166,35,.14),rgba(232,64,96,.10))';
+  const cartLabel = type === 'weekly' ? 'Stock cart' : "Today's cart";
+  const cartSub = type === 'weekly'
+    ? 'Weekly stock items. Manager confirms before these are ordered.'
+    : 'Everything here still needs ordering. Order it, then mark ordered.';
+
+  let html = '';
+  html += `<div style="background:${cartBg};border:1px solid ${cartColor};border-radius:10px;padding:12px 16px;margin-bottom:12px;display:flex;align-items:center;justify-content:space-between;flex-wrap:wrap;gap:10px;">
+    <div>
+      <div style="font-size:13px;font-weight:600;color:${cartColor};">🛒 ${cartLabel} — ${needsOrdering.length} part${needsOrdering.length!==1?'s':''} to order</div>
+      <div style="font-size:11px;color:var(--muted);">${cartSub}</div>
+    </div>
+    ${type==='weekly' && needsOrdering.length ? '<button class="btn btn-p btn-sm" onclick="confirmWeekly()">✔ Confirm all</button>' : ''}
+  </div>`;
+
+  html += `<div style="font-size:11px;font-weight:700;letter-spacing:.08em;text-transform:uppercase;color:var(--muted);margin:14px 0 8px;display:flex;align-items:center;gap:8px;">Needs ordering <span style="background:var(--card);border:1px solid var(--border);border-radius:20px;padding:1px 9px;font-size:10px;color:var(--text);">${needsOrdering.length}</span></div>`;
+  if(needsOrdering.length){
+    needsOrdering.forEach(p => { html += buildOrderRow(p); });
+  } else {
+    html += `<div style="background:var(--card);border:1px dashed var(--border);border-radius:9px;padding:14px;text-align:center;color:var(--muted);font-size:12px;">Cart is empty — nothing waiting to be ordered.</div>`;
+  }
+
+  html += `<div style="font-size:11px;font-weight:700;letter-spacing:.08em;text-transform:uppercase;color:var(--muted);margin:18px 0 8px;display:flex;align-items:center;gap:8px;">Ordered — en route <span style="background:var(--card);border:1px solid var(--border);border-radius:20px;padding:1px 9px;font-size:10px;color:var(--text);">${enRoute.length}</span></div>`;
+  if(enRoute.length){
+    enRoute.forEach(p => { html += buildOrderRow(p); });
+  } else {
+    html += `<div style="background:var(--card);border:1px dashed var(--border);border-radius:9px;padding:14px;text-align:center;color:var(--muted);font-size:12px;">Nothing ordered yet from this list.</div>`;
+  }
+
   div.innerHTML = html;
 }
 
@@ -3108,8 +3369,19 @@ function saveEditOrder(id){
   p.type = getVal('edit-type') || p.type;
   const triageEl = document.getElementById('edit-triage-'+id);
   if(triageEl) p.triage = triageEl.checked;
+  const trackEl = document.getElementById('edit-tracking-'+id);
+  if(trackEl) p.trackingNum = trackEl.value.trim();
+  const etaEl = document.getElementById('edit-eta-'+id);
+  if(etaEl) p.etaOverride = etaEl.value;
+  const notesEl = document.getElementById('edit-notes-'+id);
+  if(notesEl) p.notes = notesEl.value;
+  const retDateEl = document.getElementById('edit-retdate-'+id);
+  if(retDateEl) p.returnDate = retDateEl.value;
+  const retSlotEl = document.getElementById('edit-retslot-'+id);
+  if(retSlotEl) p.returnSlot = retSlotEl.value;
   save('orders');
   renderOrders();
+  syncOneNow('orders', p);
   syncToSupabase('orders', D.orders);
   showToast(p.partNum + ' updated.');
 }
@@ -3301,10 +3573,12 @@ function renderArrivalSection(divId,items,type){
           <button class="btn btn-p btn-sm" onclick="scheduleReturn('${o.id}')">📅 Schedule return visit</button>
           <button class="btn btn-g btn-sm" onclick="markArrived('${o.id}')">Mark received</button>
           <button class="btn btn-g btn-sm" onclick="moveToInvFromOrder('${o.id}')">Move to inventory</button>
+          <button class="btn btn-g btn-sm" onclick="editArrival('${o.id}')">✏ Edit</button>
         `:''}
         ${type==='transit'?`
           <button class="btn btn-g btn-sm" onclick="markArrived('${o.id}')">Mark received</button>
           ${!o.trackingNum?`<input type="text" placeholder="Paste tracking number…" onchange="saveTracking('${o.id}',this.value)" style="font-size:11px;padding:5px 10px;border:1px solid var(--border);border-radius:6px;background:var(--card);color:var(--text);width:200px;">`:''}
+          <button class="btn btn-g btn-sm" onclick="editArrival('${o.id}')">✏ Edit</button>
         `:''}
         ${type==='pickup'?`
           <label style="display:flex;align-items:center;gap:6px;font-size:12px;cursor:pointer;">
@@ -3316,9 +3590,10 @@ function renderArrivalSection(divId,items,type){
         `:''}
         ${type==='notrack'?`
           <input type="text" placeholder="Paste tracking number…" onchange="saveTracking('${o.id}',this.value)" style="font-size:11px;padding:5px 10px;border:1px solid var(--border);border-radius:6px;background:var(--card);color:var(--text);flex:1;min-width:160px;">
-          <button class="btn btn-g btn-sm" onclick="openMPHForPart('${o.partNum}')">Check availability ↗</button>
+          <button class="btn btn-g btn-sm" onclick="markArrived('${o.id}')">Mark received</button>
+          <button class="btn btn-g btn-sm" onclick="editArrival('${o.id}')">✏ Edit</button>
         `:''}
-        <button class="btn btn-g btn-sm" onclick="openMPHForPart('${o.partNum}')">MPH ↗</button>
+        
       </div>
     </div>`;
   });
@@ -3370,16 +3645,44 @@ function confirmPickup(id,checked){
 }
 function markArrived(id){
   const o=D.orders.find(x=>x.id==id);if(!o)return;
-  o.status='arrived';o.arrivedDate=today_str();
-  // add to inventory
-  const loc=D.locations[0]||'Warehouse / Shop';
+  // Follow the real lifecycle: ordered -> received. Do NOT auto-add to inventory.
+  // Inventory only happens via explicit "Move to inventory" (moveToInvFromOrder).
+  o.status='received';
+  o.receivedDate=today_str();
+  save('orders');updateBadges();renderArrivals();
+  if(typeof renderOrders==='function') renderOrders();
+  syncOneNow('orders', o);
+  showToast(`${o.partNum} marked received — ready to install or move to inventory.`);
+}
+function moveToInvFromOrder(id){
+  const o=D.orders.find(x=>x.id==id);if(!o)return;
+  // Ask which location
+  const locs = D.locations||['Warehouse / Shop'];
+  const loc = prompt('Move to which location? (' + locs.join(', ') + ')', locs[0]);
+  if(!loc) return;
+  const costStr = prompt('Purchase cost per unit? (Enter 0 if unknown)', '0');
+  const cost = parseFloat(costStr||'0');
+  // Add to inventory
   const existing=D.inventory.find(p=>p.partNum&&p.partNum.toLowerCase()===o.partNum.toLowerCase()&&p.loc===loc);
   if(existing){existing.qty+=o.qty||1;existing.lastUpdated=today_str();}
-  else{D.inventory.push({id:Date.now(),partNum:o.partNum,desc:o.desc,brand:o.brand,cat:'',qty:o.qty||1,loc,distributor:o.distributor,addedDate:today_str(),lastUpdated:today_str()});}
-  save('orders');save('inventory');updateBadges();renderArrivals();
-  showToast(`${o.partNum} marked arrived and added to inventory.`);
+  else{
+    const np={id:Date.now(),partNum:o.partNum,desc:o.desc,brand:o.brand,cat:'',qty:o.qty||1,loc,distributor:o.distributor,addedDate:today_str(),lastUpdated:today_str()};
+    D.inventory.push(np);
+    if(typeof dbInsert==='function') dbInsert('inventory', np);
+  }
+  if(cost>0 && typeof addLot==='function') addLot(o.partNum, loc, o.qty||1, cost, o.distributor);
+  // Mark the order resolved -> inventory (leaves arrivals AND order list, goes to master log)
+  o.status='resolved';
+  o.resolution='inventory';
+  o.resolvedDate=today_str();
+  save('orders');save('inventory');updateBadges();
+  renderArrivals();
+  renderInv();
+  if(typeof renderOrders==='function') renderOrders();
+  syncOneNow('orders', o);
+  syncToSupabase('inventory', D.inventory);
+  showToast(`${o.partNum} moved to inventory at ${loc}.`);
 }
-function moveToInvFromOrder(id){markArrived(id);}
 function scheduleReturn(id){
   const o=D.orders.find(x=>x.id==id);if(!o)return;
   showToast(`Job #${o.jobNum||'(no job linked)'} — schedule return visit in booking system.`);
@@ -3452,6 +3755,7 @@ function renderInv(){
         ${lotCount>0?`<div style="font-size:10px;color:var(--muted);margin-top:2px;">${lotCount} lot${lotCount!==1?'s':''} · current: ${costBasis}</div>`:''}
       </td>
       <td>
+        <button class="btn btn-g btn-sm" onclick="editInventory(${p.id})">✏</button>
         ${lotCount>0?`<button class="btn btn-g btn-sm" onclick="openUseParts(${p.id},'${p.partNum}','${p.loc}')">Use</button>`:`<button class="btn btn-g btn-sm" onclick="adjInv(${p.id},-1)">−1</button>`}
         <button class="btn btn-g btn-sm" style="margin-left:4px;" onclick="openLotView('${p.partNum}','${p.loc}')">Lots</button>
       </td>
@@ -3530,7 +3834,7 @@ function renderReturns(){
 
   const div=document.getElementById('returns-table');
   if(!pending.length){div.innerHTML='<div style="text-align:center;padding:32px;color:var(--muted);font-size:13px;">No pending returns.</div>';return;}
-  let html=`<div class="tbl-wrap"><table><thead><tr><th>Part #</th><th>Description</th><th>Brand</th><th>Distributor</th><th>Ordered</th><th>Days left</th><th>Action</th></tr></thead><tbody>`;
+  let html=`<div class="tbl-wrap"><table><thead><tr><th>Part #</th><th>Description</th><th>Brand</th><th>Distributor</th><th>Location</th><th>Ordered</th><th>Days left</th><th>Action</th></tr></thead><tbody>`;
   pending.sort((a,b)=>daysSince(b.orderedDate)-daysSince(a.orderedDate)).forEach(r=>{
     const rem=Math.max(0,25-daysSince(r.orderedDate));
     const pct=Math.min(100,(daysSince(r.orderedDate)/25)*100);
@@ -3538,16 +3842,37 @@ function renderReturns(){
     const bc=rem<=3?'b-red':rem<=7?'b-amber':'b-green';
     html+=`<tr>
       <td class="mono">${r.partNum}</td><td>${r.desc||'—'}</td><td>${r.brand||'—'}</td>
-      <td>${r.distributor||'—'}</td><td style="font-size:11px;">${r.orderedDate||'—'}</td>
+      <td>${r.distributor||'—'}</td><td>${r.loc?`<span class="loc-chip">${r.loc}</span>`:'—'}</td><td style="font-size:11px;">${r.orderedDate||'—'}</td>
       <td>
         <span class="badge ${bc}">${rem}d</span>
         <div class="days-bar"><div class="days-fill" style="width:${pct}%;background:${color};"></div></div>
       </td>
-      <td><button class="btn btn-p btn-sm" onclick="markReturned('${r.id}')">Returned ✔</button></td>
+      <td><button class="btn btn-g btn-sm" onclick="editReturn('${r.id}')">✏ Edit</button> <button class="btn btn-p btn-sm" onclick="markReturned('${r.id}')">Returned ✔</button> <button onclick="deleteReturn('${r.id}')" style="background:none;border:none;color:var(--muted);cursor:pointer;font-size:15px;padding:2px;" title="Delete">🗑</button></td>
     </tr>`;
   });
   html+=`</tbody></table></div>`;
   div.innerHTML=html;
+}
+
+
+async function deleteReturn(id){
+  const r = D.returns.find(x => x.id == id);
+  if(!r) return;
+  if(!confirm('Delete this return for ' + (r.partNum||'this part') + '? This cannot be undone.')) return;
+  D.returns = D.returns.filter(x => x.id != id);
+  save('returns'); updateBadges(); renderReturns();
+  // Actually delete from Supabase
+  if(sb && isOnline){
+    try{
+      const { error } = await sb.from('returns').delete().eq('id', id);
+      if(error) throw error;
+      setSyncStatus(true);
+    }catch(e){
+      setSyncStatus(false);
+      console.warn('Delete return from Supabase failed:', e.message);
+    }
+  }
+  showToast('Return deleted.');
 }
 
 function markReturned(id){
@@ -3576,7 +3901,10 @@ function renderJobLog(){
           ${j.ftf?`<span class="badge ${j.ftf==='yes'?'b-green':'b-amber'}" style="margin-left:4px;">${j.ftf==='yes'?'First-trip fix':'2nd trip'}</span>`:''}
           ${j.followUpTagged?`<span class="badge b-blue" style="margin-left:4px;">📞 Follow-up ${j.followUpType==='quality'?'quality check':'scheduled'}</span>`:''}
         </div>
-        <div style="font-size:11px;color:var(--muted);">${j.date||'—'}${j.tech?' · '+j.tech:''}</div>
+        <div style="display:flex;align-items:center;gap:8px;">
+          <span style="font-size:11px;color:var(--muted);">${j.date||'—'}${j.tech?' · '+j.tech:''}</span>
+          <button class="btn btn-g btn-sm" onclick="editJob(${j.id})">✏ Edit</button>
+        </div>
       </div>
       ${(j.csrNotes||j.aiSummary)?`
       <div style="display:grid;grid-template-columns:1fr 1fr;gap:10px;margin-bottom:10px;border-bottom:1px solid var(--border);padding-bottom:10px;">
@@ -3715,6 +4043,9 @@ function refreshHome(){
   rp.innerHTML=rets.length?rets.map(r=>{const rem=Math.max(0,25-daysSince(r.orderedDate));return`<div style="display:flex;justify-content:space-between;align-items:center;padding:5px 0;border-bottom:1px solid var(--border);font-size:12px;gap:8px;"><span class="mono" style="font-size:11px;">${r.partNum}</span><span style="color:var(--muted);flex:1;margin:0 8px;">${r.distributor||'—'}</span><span class="badge ${rem<=3?'b-red':rem<=7?'b-amber':'b-green'}">${rem}d</span></div>`}).join(''):'<div style="font-size:12px;color:var(--muted);">No urgent returns.</div>';
 
   updateBadges();
+  renderHomeLoadout();
+  updatePickListBadge();
+  checkBackupDue();
 }
 
 function updateBadges(){
@@ -3762,6 +4093,9 @@ document.getElementById('main').style.display = 'none';
     return;
   }
   setupAuthListener();
+
+  // If user arrived via a password-reset link, show the reset screen and stop
+  if(checkForRecovery()){ return; }
 
   // ── DEV MODE: skip login if a valid session already exists ────────────
   // On file:// or localhost, restore the previous session automatically.
@@ -4742,7 +5076,7 @@ function renderMasterLog(){
           <div style="width:70px;"><label class="lbl">Qty</label><input type="number" id="ml-qty-${p.id}" value="${p.qty||1}" min="1"></div>
           <div class="fw"><label class="lbl">Distributor</label>
             <select id="ml-dist-${p.id}">
-              ${['Reliable — San Antonio','Reliable — Mesquite','PartsTown','Marcone','Encompass','APC','Other'].map(d=>`<option ${p.distributor===d?'selected':''}>${d}</option>`).join('')}
+              ${['Not set','Reliable — San Antonio','Reliable — Mesquite','PartsTown','Marcone','Encompass','APC','Other'].map(d=>`<option ${p.distributor===d?'selected':''}>${d==='Not set'?'Not set — needs sourcing':d}</option>`).join('')}
             </select>
           </div>
           <div class="fw"><label class="lbl">Tech / ref</label><input type="text" id="ml-tech-${p.id}" value="${(p.tech||'').replace(/"/g,'&quot;')}"></div>
@@ -4929,6 +5263,469 @@ function checkDuplicateLive(){
   if(!warnings){ warnEl.style.display = 'none'; return; }
   warnEl.style.display = 'block';
   warnEl.innerHTML = `<span style="font-size:14px;">⚠</span> <strong>${num}</strong> is ${warnings.join(' · ')}. You can still add it if you need another.`;
+}
+
+
+
+// ═══════════════════════════════════════════════════════
+// UNIVERSAL EDIT MODAL — used across Inventory, Returns, Arrivals, Job Log
+// ═══════════════════════════════════════════════════════
+function openEditModal(opts){
+  // opts: { title, subtitle, fields:[{id,label,type,value,options}], onSave:fn }
+  const existing = document.getElementById('universal-edit-modal');
+  if(existing) existing.remove();
+
+  const modal = document.createElement('div');
+  modal.id = 'universal-edit-modal';
+  modal.style.cssText = 'position:fixed;inset:0;background:rgba(0,0,0,.7);z-index:500;display:flex;align-items:center;justify-content:center;padding:20px;';
+  modal.onclick = function(e){ if(e.target === modal) modal.remove(); };
+
+  const fieldsHtml = opts.fields.map(f => {
+    if(f.type === 'select'){
+      return `<div class="fw"><label class="lbl">${f.label}</label>
+        <select id="em-${f.id}">
+          ${f.options.map(o => `<option ${String(f.value)===String(o)?'selected':''}>${o}</option>`).join('')}
+        </select></div>`;
+    }
+    if(f.type === 'textarea'){
+      return `<div class="fw" style="flex-basis:100%;"><label class="lbl">${f.label}</label>
+        <textarea id="em-${f.id}" rows="3" style="width:100%;resize:vertical;">${(f.value||'').replace(/</g,'&lt;')}</textarea></div>`;
+    }
+    return `<div class="fw"><label class="lbl">${f.label}</label>
+      <input type="${f.type||'text'}" id="em-${f.id}" value="${String(f.value||'').replace(/"/g,'&quot;')}" ${f.mono?'style="font-family:var(--mono);"':''}></div>`;
+  }).join('');
+
+  modal.innerHTML = `
+    <div style="background:var(--panel);border:1px solid var(--border);border-radius:13px;padding:22px;width:95%;max-width:520px;max-height:85vh;overflow-y:auto;">
+      <div style="display:flex;justify-content:space-between;align-items:flex-start;margin-bottom:6px;">
+        <div style="font-family:var(--cond);font-size:18px;font-weight:600;">${opts.title}</div>
+        <button onclick="document.getElementById('universal-edit-modal').remove()" style="background:none;border:none;color:var(--muted);font-size:20px;cursor:pointer;">✕</button>
+      </div>
+      ${opts.subtitle?`<div style="font-size:12px;color:var(--muted);margin-bottom:16px;">${opts.subtitle}</div>`:'<div style="margin-bottom:12px;"></div>'}
+      <div class="frow" style="flex-wrap:wrap;">${fieldsHtml}</div>
+      <div class="arow" style="margin-top:8px;">
+        <button class="btn btn-p btn-sm" id="em-save-btn">Save changes</button>
+        <button class="btn btn-m btn-sm" onclick="document.getElementById('universal-edit-modal').remove()">Cancel</button>
+      </div>
+    </div>`;
+  document.body.appendChild(modal);
+
+  document.getElementById('em-save-btn').onclick = function(){
+    const values = {};
+    opts.fields.forEach(f => {
+      const el = document.getElementById('em-'+f.id);
+      if(el) values[f.id] = el.value;
+    });
+    opts.onSave(values);
+    modal.remove();
+  };
+}
+
+// ── Inventory edit ──
+function editInventory(id){
+  const p = D.inventory.find(x => x.id == id);
+  if(!p) return;
+  openEditModal({
+    title: 'Edit inventory item',
+    subtitle: p.partNum + (p.desc ? ' — ' + p.desc : ''),
+    fields: [
+      {id:'partNum', label:'Part #', value:p.partNum, mono:true},
+      {id:'desc', label:'Description', value:p.desc},
+      {id:'brand', label:'Brand', value:p.brand},
+      {id:'cat', label:'Category', value:p.cat},
+      {id:'loc', label:'Location', type:'select', value:p.loc, options:(D.locations||['Warehouse / Shop'])},
+      {id:'qty', label:'Quantity', type:'number', value:p.qty},
+    ],
+    onSave: function(v){
+      p.partNum = v.partNum.trim() || p.partNum;
+      p.desc = v.desc; p.brand = v.brand; p.cat = v.cat;
+      p.loc = v.loc; p.qty = parseInt(v.qty)||0;
+      p.lastUpdated = today();
+      save('inventory');
+      dbUpdate('inventory', p.id, {part_num:p.partNum, description:p.desc, brand:p.brand, cat:p.cat, loc:p.loc, qty:p.qty, last_updated:p.lastUpdated});
+      renderInv();
+      showToast(p.partNum + ' updated.');
+    }
+  });
+  // Add a "Move back to Arrivals" button to the modal footer
+  setTimeout(function(){
+    const arow = document.querySelector('#universal-edit-modal .arow');
+    if(arow && !document.getElementById('em-move-back')){
+      const btn = document.createElement('button');
+      btn.id = 'em-move-back';
+      btn.className = 'btn btn-g btn-sm';
+      btn.style.marginLeft = 'auto';
+      btn.textContent = '↩ Move back to Arrivals';
+      btn.onclick = function(){ moveInvBackToArrivals(id); };
+      arow.appendChild(btn);
+    }
+  }, 50);
+}
+
+// ── Returns edit ──
+
+// Move an inventory item back to Arrivals (undo an accidental "move to inventory")
+function moveInvBackToArrivals(invId){
+  const p = D.inventory.find(x => x.id == invId);
+  if(!p) return;
+  if(!confirm('Move ' + p.partNum + ' back to Arrivals? This removes it from inventory and puts it back as an ordered part awaiting receipt.')) return;
+  // Recreate an order in 'ordered' status so it shows in Arrivals again
+  const order = {
+    id: Date.now(),
+    partNum: p.partNum, desc: p.desc, brand: p.brand, qty: p.qty||1,
+    distributor: p.distributor||'Not set',
+    status: 'ordered',
+    type: 'daily',
+    addedDate: today_str(),
+    orderedDate: today_str(),
+    jobNum: '', trackingNum: '', etaOverride: '',
+    fulfillment: 'shipped', triage: false,
+  };
+  D.orders.unshift(order);
+  // Remove from inventory
+  D.inventory = D.inventory.filter(x => x.id != invId);
+  save('orders'); save('inventory'); updateBadges();
+  renderInv();
+  if(typeof renderArrivals==='function') renderArrivals();
+  if(typeof renderOrders==='function') renderOrders();
+  syncOneNow('orders', order);
+  // delete inventory row from supabase
+  if(sb && isOnline){ sb.from('inventory').delete().eq('id', invId).then(()=>{}); }
+  const modal = document.getElementById('universal-edit-modal');
+  if(modal) modal.remove();
+  showToast(p.partNum + ' moved back to Arrivals.');
+}
+
+function editReturn(id){
+  const r = D.returns.find(x => x.id == id);
+  if(!r) return;
+  openEditModal({
+    title: 'Edit return',
+    subtitle: r.partNum + (r.desc ? ' — ' + r.desc : ''),
+    fields: [
+      {id:'partNum', label:'Part #', value:r.partNum, mono:true},
+      {id:'desc', label:'Description', value:r.desc},
+      {id:'distributor', label:'Distributor', type:'select', value:r.distributor, options:['Reliable — San Antonio','Reliable — Mesquite','PartsTown','Marcone','Encompass','APC','Other']},
+      {id:'returnType', label:'Return type', type:'select', value:r.returnType, options:['triaged','immediate']},
+      {id:'loc', label:'Current location', type:'select', value:r.loc||'', options:['', ...(D.locations||['Warehouse / Shop'])]},
+      {id:'orderedDate', label:'Order date (return clock)', type:'date', value:r.orderedDate},
+      {id:'jobNum', label:'Job #', value:r.jobNum},
+      {id:'notes', label:'Notes', type:'textarea', value:r.notes},
+    ],
+    onSave: function(v){
+      r.partNum = v.partNum.trim() || r.partNum;
+      r.desc = v.desc; r.distributor = v.distributor;
+      r.returnType = v.returnType; r.orderedDate = v.orderedDate;
+      r.loc = v.loc;
+      r.jobNum = v.jobNum; r.notes = v.notes;
+      save('returns');
+      dbUpdate('returns', r.id, {part_num:r.partNum, description:r.desc, distributor:r.distributor, return_type:r.returnType, loc:r.loc, ordered_date:r.orderedDate, job_num:r.jobNum, notes:r.notes});
+      renderReturns();
+      showToast(r.partNum + ' return updated.');
+    }
+  });
+}
+
+// ── Arrivals edit (location landing + tracking + ETA override) ──
+function editArrival(id){
+  const p = D.orders.find(x => x.id == id);
+  if(!p) return;
+  openEditModal({
+    title: 'Edit arrival',
+    subtitle: p.partNum + (p.desc ? ' — ' + p.desc : ''),
+    fields: [
+      {id:'distributor', label:'Distributor', type:'select', value:p.distributor, options:['Not set','Reliable — San Antonio','Reliable — Mesquite','PartsTown','Marcone','Encompass','APC','Other']},
+      {id:'trackingNum', label:'Tracking ID', value:p.trackingNum, mono:true},
+      {id:'etaOverride', label:'ETA override (blank = auto)', type:'date', value:p.etaOverride},
+      {id:'jobNum', label:'Job #', value:p.jobNum},
+      {id:'returnDate', label:'📅 Return visit date', type:'date', value:p.returnDate},
+      {id:'returnSlot', label:'Slot', type:'select', value:p.returnSlot||'', options:['','AM','PM']},
+      {id:'notes', label:'Notes — customer comms', type:'textarea', value:p.notes},
+    ],
+    onSave: function(v){
+      p.distributor = v.distributor; p.trackingNum = v.trackingNum.trim();
+      p.etaOverride = v.etaOverride; p.jobNum = v.jobNum.trim();
+      p.notes = v.notes; p.returnDate = v.returnDate; p.returnSlot = v.returnSlot;
+      save('orders');
+      syncOneNow('orders', p);
+      if(typeof renderArrivals==='function') renderArrivals();
+      if(typeof renderOrders==='function') renderOrders();
+      showToast(p.partNum + ' updated.');
+    }
+  });
+}
+
+// ── Job Log edit ──
+function editJob(id){
+  const j = D.jobs.find(x => x.id == id);
+  if(!j) return;
+  openEditModal({
+    title: 'Edit job',
+    subtitle: (j.model||'') + (j.jobNum ? ' — Job #' + j.jobNum : ''),
+    fields: [
+      {id:'jobNum', label:'Job #', value:j.jobNum},
+      {id:'brand', label:'Brand', value:j.brand},
+      {id:'model', label:'Model', value:j.model, mono:true},
+      {id:'serial', label:'Serial', value:j.serial, mono:true},
+      {id:'issue', label:'Issue', type:'textarea', value:j.issue},
+      {id:'resolution', label:'Resolution', type:'textarea', value:j.resolution},
+      {id:'tech', label:'Tech', value:j.tech},
+      {id:'notes', label:'Notes', type:'textarea', value:j.notes},
+    ],
+    onSave: function(v){
+      Object.assign(j, {jobNum:v.jobNum, brand:v.brand, model:v.model, serial:v.serial, issue:v.issue, resolution:v.resolution, tech:v.tech, notes:v.notes});
+      save('jobs');
+      dbUpdate('job_log', j.id, {job_num:j.jobNum, brand:j.brand, model:j.model, serial:j.serial, issue:j.issue, resolution:j.resolution, tech:j.tech, notes:j.notes});
+      renderJobLog();
+      showToast('Job updated.');
+    }
+  });
+}
+
+
+
+// ═══════════════════════════════════════════════════════
+// PICK LIST — daily truck load-out
+// ═══════════════════════════════════════════════════════
+var pickListDate = null;
+
+function pickListToday(){ pickListDate = today_str(); const el=document.getElementById('picklist-date'); if(el) el.value=pickListDate; renderPickList(); }
+function pickListShiftDay(delta){
+  if(!pickListDate) pickListDate = today_str();
+  const d = new Date(pickListDate + 'T12:00:00');
+  d.setDate(d.getDate() + delta);
+  pickListDate = d.toISOString().slice(0,10);
+  const el=document.getElementById('picklist-date'); if(el) el.value=pickListDate;
+  renderPickList();
+}
+
+function renderPickList(){
+  const dateEl = document.getElementById('picklist-date');
+  if(!pickListDate){ pickListDate = (dateEl && dateEl.value) || today_str(); }
+  if(dateEl && !dateEl.value) dateEl.value = pickListDate;
+  if(dateEl && dateEl.value) pickListDate = dateEl.value;
+
+  // Parts scheduled for this date that are RECEIVED (ready to load)
+  const scheduled = D.orders.filter(o => o.returnDate === pickListDate && o.status !== 'resolved');
+  const ready = scheduled.filter(o => o.status === 'received');
+  const notReady = scheduled.filter(o => o.status !== 'received'); // scheduled but not yet received
+
+  const am = ready.filter(o => o.returnSlot === 'AM');
+  const pm = ready.filter(o => o.returnSlot === 'PM');
+  const noslot = ready.filter(o => !o.returnSlot);
+
+  const content = document.getElementById('picklist-content');
+  const warnings = document.getElementById('picklist-warnings');
+
+  // ── Safety net: parts scheduled but not received ──
+  let warnHtml = '';
+  if(notReady.length){
+    warnHtml += `<div style="background:rgba(245,166,35,.12);border:1px solid var(--amber);border-radius:9px;padding:12px 14px;">
+      <div style="font-size:13px;font-weight:600;color:var(--amber);margin-bottom:6px;">⚠ ${notReady.length} part${notReady.length!==1?'s':''} scheduled but NOT received yet</div>
+      <div style="font-size:11px;color:var(--muted);margin-bottom:8px;">Chase these before the visit — if delayed, tell the customer ASAP.</div>
+      ${notReady.map(o => `<div style="font-size:12px;padding:4px 0;border-top:1px solid rgba(245,166,35,.2);">
+        <span style="font-family:var(--mono);color:var(--teal);">${o.partNum}</span> ${o.desc||''}
+        ${o.jobNum?`· Job #${o.jobNum}`:''} · status: <strong>${o.status||'pending'}</strong>
+        ${o.distributor && !o.distributor.includes('Not set')?`· ${calcETA(o.distributor, o.orderedDate||o.addedDate)}`:' · ⚑ needs sourcing'}
+      </div>`).join('')}
+    </div>`;
+  }
+  warnings.innerHTML = warnHtml;
+
+  // ── The load-out list ──
+  const dateLabel = new Date(pickListDate+'T12:00:00').toLocaleDateString('en-US',{weekday:'long',month:'long',day:'numeric'});
+  let html = `<div style="font-size:14px;font-weight:600;margin-bottom:12px;">${dateLabel} — ${ready.length} part${ready.length!==1?'s':''} to load</div>`;
+
+  if(!ready.length){
+    html += `<div style="background:var(--card);border:1px dashed var(--border);border-radius:9px;padding:24px;text-align:center;color:var(--muted);font-size:13px;">No received parts scheduled for this day.</div>`;
+  } else {
+    const renderSlot = (label, list, color) => {
+      if(!list.length) return '';
+      let s = `<div style="font-size:11px;font-weight:700;letter-spacing:.08em;text-transform:uppercase;color:${color};margin:16px 0 8px;">${label} (${list.length})</div>`;
+      list.forEach(o => {
+        s += `<div style="background:var(--card);border:1px solid var(--border);border-radius:9px;margin-bottom:8px;padding:12px 14px;display:flex;align-items:center;gap:12px;">
+          <input type="checkbox" style="width:20px;height:20px;flex-shrink:0;" onchange="this.closest('div').style.opacity=this.checked?'0.5':'1';">
+          <div style="flex:1;min-width:0;">
+            <div style="display:flex;flex-wrap:wrap;gap:8px;align-items:center;">
+              <span style="font-family:var(--mono);font-size:14px;font-weight:600;color:var(--teal);">${o.partNum}</span>
+              ${o.desc?`<span style="font-size:13px;">${o.desc}</span>`:''}
+              ${o.brand?`<span style="font-size:12px;color:var(--muted);">${o.brand}</span>`:''}
+              <span style="font-size:12px;color:var(--muted);">×${o.qty||1}</span>
+              ${o.jobNum?`<span class="badge b-blue">Job #${o.jobNum}</span>`:''}
+            </div>
+            ${o.notes?`<div style="font-size:11px;color:var(--muted);margin-top:4px;">📝 ${o.notes}</div>`:''}
+          </div>
+        </div>`;
+      });
+      return s;
+    };
+    html += renderSlot('☀ Morning (AM)', am, 'var(--amber)');
+    html += renderSlot('🌆 Afternoon (PM)', pm, 'var(--blue)');
+    html += renderSlot('No slot set', noslot, 'var(--muted)');
+  }
+
+  content.innerHTML = html;
+}
+
+function exportPickList(){
+  const scheduled = D.orders.filter(o => o.returnDate === pickListDate && o.status === 'received');
+  if(!scheduled.length){ showToast('Nothing to export for this day.'); return; }
+  const rows = [['Slot','Part #','Description','Brand','Qty','Job #','Notes']];
+  scheduled.forEach(o => rows.push([o.returnSlot||'', o.partNum||'', o.desc||'', o.brand||'', o.qty||1, o.jobNum||'', o.notes||'']));
+  const csv = rows.map(r => r.map(c => '"'+String(c).replace(/"/g,'""')+'"').join(',')).join('\n');
+  const blob = new Blob([csv], {type:'text/csv'});
+  const a = document.createElement('a');
+  a.href = URL.createObjectURL(blob);
+  a.download = 'picklist_' + pickListDate + '.csv';
+  a.click();
+  showToast('Pick list exported.');
+}
+
+// Count parts to load today (for nav badge)
+function updatePickListBadge(){
+  const t = today_str();
+  const count = D.orders.filter(o => o.returnDate === t && o.status === 'received').length;
+  const badge = document.getElementById('badge-picklist');
+  if(badge){ badge.textContent = count; badge.style.display = count ? 'inline-flex' : 'none'; }
+}
+
+
+
+function renderHomeLoadout(){
+  const el = document.getElementById('home-loadout');
+  if(!el) return;
+  const t = today_str();
+  const ready = D.orders.filter(o => o.returnDate === t && o.status === 'received');
+  const notReady = D.orders.filter(o => o.returnDate === t && o.status !== 'received' && o.status !== 'resolved');
+  if(!ready.length && !notReady.length){ el.innerHTML = ''; return; }
+
+  const am = ready.filter(o => o.returnSlot === 'AM');
+  const pm = ready.filter(o => o.returnSlot === 'PM');
+  const noslot = ready.filter(o => !o.returnSlot);
+
+  let html = `<div class="card" style="border-color:var(--teal-d);">
+    <div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:10px;">
+      <div class="card-label">🚚 Today's load-out — ${ready.length} part${ready.length!==1?'s':''}</div>
+      <button class="btn btn-g btn-sm" onclick="navTo('picklist')">Full pick list →</button>
+    </div>`;
+
+  if(ready.length){
+    const line = (lbl, list) => list.length ? `<div style="font-size:12px;margin-bottom:4px;"><strong style="color:var(--muted);">${lbl}:</strong> ${list.map(o=>o.partNum+(o.jobNum?' (#'+o.jobNum+')':'')).join(', ')}</div>` : '';
+    html += line('AM', am) + line('PM', pm) + line('No slot', noslot);
+  } else {
+    html += `<div style="font-size:12px;color:var(--muted);">No received parts to load today.</div>`;
+  }
+
+  if(notReady.length){
+    html += `<div style="margin-top:8px;padding-top:8px;border-top:1px solid var(--border);font-size:12px;color:var(--amber);">⚠ ${notReady.length} scheduled today but not received yet — check before heading out.</div>`;
+  }
+  html += `</div>`;
+  el.innerHTML = html;
+}
+
+
+
+// ═══════════════════════════════════════════════════════
+// ADMIN / OWNER + WEEKLY BACKUP
+// ═══════════════════════════════════════════════════════
+function isAdmin(){
+  const email = (currentUser && currentUser.email || '').toLowerCase().trim();
+  if(!email) return false;
+  return (D.adminEmails||[]).map(e => e.toLowerCase().trim()).includes(email);
+}
+
+function saveAdminEmails(){
+  localStorage.setItem('ca_setting_admin_emails', JSON.stringify(D.adminEmails||[]));
+  // sync to settings table in supabase
+  if(sb && isOnline){
+    sb.from('settings').upsert({key:'admin_emails', value:JSON.stringify(D.adminEmails||[])}, {onConflict:'key'}).then(()=>{}).catch(()=>{});
+  }
+}
+
+function addAdminEmail(){
+  const inp = document.getElementById('admin-email-input');
+  if(!inp) return;
+  const email = (inp.value||'').trim().toLowerCase();
+  if(!email || !email.includes('@')){ showToast('Enter a valid email.'); return; }
+  if(!D.adminEmails) D.adminEmails = [];
+  if(D.adminEmails.map(e=>e.toLowerCase()).includes(email)){ showToast('Already an admin.'); return; }
+  D.adminEmails.push(email);
+  saveAdminEmails();
+  inp.value='';
+  renderAdminEmails();
+  showToast(email + ' added as admin.');
+}
+
+function removeAdminEmail(email){
+  if((D.adminEmails||[]).length <= 1){ showToast('Keep at least one admin.'); return; }
+  D.adminEmails = D.adminEmails.filter(e => e.toLowerCase() !== email.toLowerCase());
+  saveAdminEmails();
+  renderAdminEmails();
+  showToast(email + ' removed.');
+}
+
+function renderAdminEmails(){
+  const div = document.getElementById('admin-emails-list');
+  if(!div) return;
+  div.innerHTML = (D.adminEmails||[]).map(e => `
+    <div style="display:flex;align-items:center;justify-content:space-between;padding:8px 12px;background:var(--card);border:1px solid var(--border);border-radius:7px;margin-bottom:6px;">
+      <span style="font-size:13px;">${e}</span>
+      <button onclick="removeAdminEmail('${e}')" style="background:none;border:none;color:var(--red);cursor:pointer;font-size:13px;">Remove</button>
+    </div>`).join('');
+}
+
+// ── Weekly backup check ──
+function daysSinceBackup(){
+  if(!D.lastBackup) return 999;
+  const last = new Date(D.lastBackup + 'T12:00:00');
+  return Math.floor((new Date() - last) / (1000*60*60*24));
+}
+
+function checkBackupDue(){
+  if(!isAdmin()) return; // only admins see this
+  const banner = document.getElementById('backup-reminder');
+  if(!banner) return;
+  const days = daysSinceBackup();
+  if(days >= 7){
+    banner.style.display = 'block';
+    const msg = D.lastBackup ? `Last backup was ${days} days ago.` : 'No backup recorded yet.';
+    document.getElementById('backup-reminder-msg').textContent = msg;
+  } else {
+    banner.style.display = 'none';
+  }
+}
+
+function exportEverything(){
+  const stamp = today_str();
+  const tables = {
+    orders: D.orders, inventory: D.inventory, returns: D.returns, jobs: D.jobs
+  };
+  // Build one CSV per table, combined into a single text file with section headers
+  let combined = 'CITY APPLIANCE HUB — FULL BACKUP — ' + stamp + '\n\n';
+  Object.entries(tables).forEach(([name, rows]) => {
+    combined += '═══ ' + name.toUpperCase() + ' (' + rows.length + ' rows) ═══\n';
+    if(rows.length){
+      const cols = Object.keys(rows[0]);
+      combined += cols.join(',') + '\n';
+      rows.forEach(r => {
+        combined += cols.map(c => '"'+String(r[c]==null?'':r[c]).replace(/"/g,'""')+'"').join(',') + '\n';
+      });
+    }
+    combined += '\n';
+  });
+  const blob = new Blob([combined], {type:'text/csv'});
+  const a = document.createElement('a');
+  a.href = URL.createObjectURL(blob);
+  a.download = 'ca_hub_FULL_BACKUP_' + stamp + '.csv';
+  a.click();
+  // Record the backup
+  D.lastBackup = stamp;
+  localStorage.setItem('ca_setting_last_backup', stamp);
+  if(sb && isOnline){
+    sb.from('settings').upsert({key:'last_backup', value:stamp}, {onConflict:'key'}).then(()=>{}).catch(()=>{});
+  }
+  checkBackupDue();
+  showToast('Full backup downloaded. Drop it in Google Drive to be safe.');
 }
 
 
