@@ -1727,19 +1727,34 @@ function save(k){
 // Silent background sync — never blocks UI, never replaces working local data
 function syncToSupabase(table, data){
   if(!sb || !isOnline || !data || !data.length) return;
-  // Fire and forget — UI never waits for this
+  // Fire and forget — UI never waits — but sync ALL items, real upsert
   setTimeout(async () => {
     try {
-      for(const row of data.slice(0,5)){ // sync recent items only
-        const snakeRow = toSnake({...row, user_id: currentUser?.id});
-        await sb.from(table).upsert(snakeRow, {onConflict:'id', ignoreDuplicates:true});
-      }
+      const rows = data.map(row => toSnake({...row, user_id: currentUser?.id}));
+      const { error } = await sb.from(table).upsert(rows, { onConflict: 'id' });
+      if(error) throw error;
       setSyncStatus(true);
     } catch(e) {
       setSyncStatus(false);
-      console.warn('Background sync failed:', e.message);
+      console.warn('Background sync failed for ' + table + ':', e.message);
     }
-  }, 2000);
+  }, 800);
+}
+
+// Immediate, awaited single-row write — use when we need certainty the row saved
+async function syncOneNow(table, row){
+  if(!sb || !isOnline) { setSyncStatus(false); return false; }
+  try {
+    const snakeRow = toSnake({...row, user_id: currentUser?.id});
+    const { error } = await sb.from(table).upsert(snakeRow, { onConflict: 'id' });
+    if(error) throw error;
+    setSyncStatus(true);
+    return true;
+  } catch(e) {
+    setSyncStatus(false);
+    console.warn('Immediate sync failed for ' + table + ':', e.message);
+    return false;
+  }
 }
 
 
@@ -1951,15 +1966,22 @@ async function syncFromServer(){
 }
 
 // ── Realtime subscriptions ─────────────────────────────
+var _realtimeSetup = false;
 function setupRealtime(){
   if(!sb||!isOnline) return;
+  if(_realtimeSetup) return; // never set up twice — prevents the subscribe() crash
+  _realtimeSetup = true;
   const tables = ['orders','inventory','job_log','returns'];
   tables.forEach(table => {
-    sb.channel('realtime-'+table)
-      .on('postgres_changes', { event: '*', schema: 'public', table }, payload => {
-        handleRealtimeChange(table, payload);
-      })
-      .subscribe();
+    try{
+      sb.channel('realtime-'+table)
+        .on('postgres_changes', { event: '*', schema: 'public', table }, payload => {
+          try{ handleRealtimeChange(table, payload); }catch(e){ console.warn('realtime handler:', e.message); }
+        })
+        .subscribe();
+    }catch(e){
+      console.warn('Realtime setup skipped for ' + table + ':', e.message);
+    }
   });
 }
 
@@ -2614,7 +2636,8 @@ function saveOrderItem(){
   save('orders');
   updateBadges();
   renderOrders();
-  syncToSupabase('orders', D.orders);
+  syncOneNow('orders', order);          // write THIS part now, awaited
+  syncToSupabase('orders', D.orders);   // and sweep the rest in background
   // Clear form fields except distributor and priority
   ['ao-num','ao-desc','ao-brand','ao-jobnum','ao-tech','ao-serial'].forEach(function(id){
     var el = document.getElementById(id); if(el) el.value='';
@@ -4292,6 +4315,7 @@ function addPartsManually(){
   save('inventory');
   closeAddParts();
   renderInv();
+  syncToSupabase('inventory', D.inventory);
   showInventoryConfirmation(num, qty, cost, loc);
 }
 
@@ -4474,6 +4498,7 @@ function saveAddReturn(){
   updateBadges();
   closeAddReturn();
   renderReturns();
+  syncOneNow('returns', entry);
   syncToSupabase('returns', D.returns);
   const msg = addReturnType==='immediate'
     ? `${num} added as immediate return — contact ${dist}.`
