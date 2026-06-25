@@ -1730,7 +1730,7 @@ function syncToSupabase(table, data){
   // Fire and forget — UI never waits — but sync ALL items, real upsert
   setTimeout(async () => {
     try {
-      const rows = data.map(row => toSnake({...row, user_id: currentUser?.id}));
+      const rows = data.map(row => filterToColumns(table, toSnake({...row, user_id: currentUser?.id})));
       const { error } = await sb.from(table).upsert(rows, { onConflict: 'id' });
       if(error) throw error;
       setSyncStatus(true);
@@ -1745,7 +1745,7 @@ function syncToSupabase(table, data){
 async function syncOneNow(table, row){
   if(!sb || !isOnline) { setSyncStatus(false); return false; }
   try {
-    const snakeRow = toSnake({...row, user_id: currentUser?.id});
+    const snakeRow = filterToColumns(table, toSnake({...row, user_id: currentUser?.id}));
     const { error } = await sb.from(table).upsert(snakeRow, { onConflict: 'id' });
     if(error) throw error;
     setSyncStatus(true);
@@ -1841,19 +1841,53 @@ function toCamel(obj){
   if(Array.isArray(obj)) return obj.map(toCamel);
   const out={};
   Object.entries(obj).forEach(([k,v])=>{
-    const ck=k.replace(/_([a-z])/g,(_,c)=>c.toUpperCase());
-    out[ck]=toCamel(v);
+    // Apply explicit DB->field rename first, else snake_case -> camelCase
+    let field = DB_TO_FIELD[k];
+    if(!field) field = k.replace(/_([a-z])/g,(_,c)=>c.toUpperCase());
+    out[field]=toCamel(v);
   });
   return out;
 }
 // Convert camelCase keys to snake_case
+
+// ═══════════════════════════════════════════════════════
+// COLUMN ALLOWLISTS — only send columns that exist in Supabase
+// Prevents "could not find column X" 400 errors permanently.
+// ═══════════════════════════════════════════════════════
+var DB_COLUMNS = {
+  orders: ['id','user_id','part_num','description','brand','qty','distributor','tech','priority','status','type','added_date','ordered_date','received_date','resolved_date','resolution','fulfillment','avail_status','job_num','serial','triage','tracking_num'],
+  inventory: ['id','user_id','part_num','description','brand','cat','qty','loc','distributor','added_date','last_updated'],
+  returns: ['id','user_id','part_num','description','brand','qty','distributor','ordered_date','returned_date','status','return_type','job_num','notes','added_date'],
+  job_log: ['id','user_id','job_num','hcp_url','brand','model','serial','issue','resolution','parts_used','tech','status','created_date','notes']
+};
+
+// Filter a snake_cased row down to only columns that exist in the table
+function filterToColumns(table, snakeRow){
+  const allowed = DB_COLUMNS[table];
+  if(!allowed) return snakeRow; // unknown table — send as-is
+  const out = {};
+  Object.entries(snakeRow).forEach(([k,v])=>{
+    if(allowed.includes(k)) out[k] = v;
+  });
+  return out;
+}
+
+// App field name -> Supabase column name (handles reserved-word renames)
+var FIELD_TO_DB = {
+  desc: 'description'   // 'desc' is a reserved word in PostgreSQL; column is 'description'
+};
+var DB_TO_FIELD = { description: 'desc' };
+
 function toSnake(obj){
   if(!obj||typeof obj!=='object') return obj;
   if(Array.isArray(obj)) return obj.map(toSnake);
   const out={};
   Object.entries(obj).forEach(([k,v])=>{
-    const sk=k.replace(/([A-Z])/g,c=>'_'+c.toLowerCase());
-    if(v!==undefined) out[sk]=v;
+    if(v===undefined) return;
+    // Apply explicit field rename first, else camelCase -> snake_case
+    let col = FIELD_TO_DB[k];
+    if(!col) col = k.replace(/([A-Z])/g,c=>'_'+c.toLowerCase());
+    out[col]=v;
   });
   return out;
 }
@@ -1881,7 +1915,7 @@ async function dbInsert(table, row){
   localAppend(table, rowWithUser);
   if(!sb||!isOnline) return rowWithUser;
   try{
-    const snakeRow = toSnake(rowWithUser);
+    const snakeRow = filterToColumns(table, toSnake(rowWithUser));
     const { data, error } = await sb.from(table).insert(snakeRow).select().single();
     if(error) throw error;
     setSyncStatus(true);
@@ -1898,7 +1932,7 @@ async function dbUpdate(table, id, changes){
   localUpdate(table, id, changes);
   if(!sb||!isOnline){ queueOfflineOp({ type:'update', table, id, changes }); return; }
   try{
-    const snakeChanges = toSnake(changes);
+    const snakeChanges = filterToColumns(table, toSnake(changes));
     const { error } = await sb.from(table).update(snakeChanges).eq('id', id);
     if(error) throw error;
   }catch(e){
