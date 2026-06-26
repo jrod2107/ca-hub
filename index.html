@@ -789,6 +789,7 @@ tr:hover td{background:rgba(0,201,177,.03);}
     <div class="frow">
       <div class="fw"><label class="lbl">Serial / revision (optional)</label><input type="text" id="ao-serial" style="font-family:var(--mono);font-size:11px;" placeholder="Serial # or revision"></div>
       <div class="fw"><label class="lbl">Tech / ref</label><input type="text" id="ao-tech" placeholder="Who requested this?"></div>
+      <div class="fw"><label class="lbl">Vendor ref / marking <span style="color:var(--muted);font-weight:400;">(for email match)</span></label><input type="text" id="ao-vendorref" style="font-family:var(--mono);" placeholder="e.g. 7027"></div>
     </div>
     <div style="margin-bottom:12px;">
       <label style="display:flex;align-items:center;gap:8px;font-size:12px;cursor:pointer;color:var(--text);">
@@ -1974,7 +1975,7 @@ function toCamel(obj){
 // Prevents "could not find column X" 400 errors permanently.
 // ═══════════════════════════════════════════════════════
 var DB_COLUMNS = {
-  orders: ['id','user_id','part_num','description','brand','qty','distributor','tech','priority','status','type','added_date','ordered_date','received_date','resolved_date','resolution','fulfillment','avail_status','job_num','serial','triage','tracking_num','eta_override','notes','return_date','return_slot'],
+  orders: ['id','user_id','part_num','description','brand','qty','distributor','tech','priority','status','type','added_date','ordered_date','received_date','resolved_date','resolution','fulfillment','avail_status','job_num','serial','triage','tracking_num','eta_override','notes','return_date','return_slot','vendor_ref','vendor_order_num'],
   inventory: ['id','user_id','part_num','description','brand','cat','qty','loc','distributor','added_date','last_updated'],
   returns: ['id','user_id','part_num','description','brand','qty','distributor','loc','ordered_date','returned_date','status','return_type','job_num','notes','added_date'],
   job_log: ['id','user_id','job_num','hcp_url','brand','model','serial','issue','resolution','parts_used','tech','status','created_date','notes']
@@ -2796,6 +2797,7 @@ function saveOrderItem(){
     triage: ((document.getElementById('ao-triage') || {}).checked) || false,
     trackingNum: '',
     etaOverride: '',
+    vendorRef: ((document.getElementById('ao-vendorref') || {}).value || '').trim(),
   };
   D.orders.unshift(order);
   save('orders');
@@ -2804,7 +2806,7 @@ function saveOrderItem(){
   syncOneNow('orders', order);          // write THIS part now, awaited
   syncToSupabase('orders', D.orders);   // and sweep the rest in background
   // Clear form fields except distributor and priority
-  ['ao-num','ao-desc','ao-brand','ao-jobnum','ao-tech','ao-serial'].forEach(function(id){
+  ['ao-num','ao-desc','ao-brand','ao-jobnum','ao-tech','ao-serial','ao-vendorref'].forEach(function(id){
     var el = document.getElementById(id); if(el) el.value='';
   });
   var triageEl = document.getElementById('ao-triage'); if(triageEl) triageEl.checked = false;
@@ -3216,6 +3218,7 @@ function buildOrderRow(p){
             <span style="${eta.includes('pending')?'color:var(--amber);':''}">${eta}</span>
             ${(p.status||'pending')==='pending' && !needsVendor && cutoffNote(p.distributor) ? `<span style="font-size:11px;${cutoffNote(p.distributor).includes('Past')?'color:var(--amber);':'color:var(--teal);'}">${cutoffNote(p.distributor)}</span>` : ''}
             ${p.trackingNum?`<span style="color:var(--teal);">📦 ${p.trackingNum}</span>`:''}
+            ${p.vendorRef?`<span style="color:var(--muted);" title="Vendor reference for email matching">Ref: ${p.vendorRef}</span>`:''}
             ${p.notes?`<span style="color:var(--blue);" title="${(p.notes||'').replace(/"/g,'&quot;')}">📝 Notes</span>`:''}
             ${p.returnDate?`<span style="color:var(--teal);">📅 ${fmtDate(p.returnDate)}${p.returnSlot?' '+p.returnSlot:''}</span>`:''}
             ${returnInfo}
@@ -3255,6 +3258,7 @@ function buildOrderRow(p){
         </div>
         <div class="frow">
           <div class="fw"><label class="lbl">Tracking ID</label><input type="text" id="edit-tracking-${p.id}" value="${(p.trackingNum||'').replace(/"/g,'&quot;')}" style="font-family:var(--mono);" placeholder="Carrier tracking number"></div>
+          <div class="fw"><label class="lbl">Vendor ref / marking</label><input type="text" id="edit-vendorref-${p.id}" value="${(p.vendorRef||'').replace(/"/g,'&quot;')}" style="font-family:var(--mono);" placeholder="e.g. 7027"></div>
           <div class="fw"><label class="lbl">ETA override <span style="color:var(--muted);font-weight:400;">(leave blank to auto-calc)</span></label><input type="date" id="edit-eta-${p.id}" value="${p.etaOverride||''}"></div>
         </div>
         <div class="frow">
@@ -3371,6 +3375,8 @@ function saveEditOrder(id){
   if(triageEl) p.triage = triageEl.checked;
   const trackEl = document.getElementById('edit-tracking-'+id);
   if(trackEl) p.trackingNum = trackEl.value.trim();
+  const vrefEl = document.getElementById('edit-vendorref-'+id);
+  if(vrefEl) p.vendorRef = vrefEl.value.trim();
   const etaEl = document.getElementById('edit-eta-'+id);
   if(etaEl) p.etaOverride = etaEl.value;
   const notesEl = document.getElementById('edit-notes-'+id);
@@ -5440,12 +5446,14 @@ function editArrival(id){
       {id:'jobNum', label:'Job #', value:p.jobNum},
       {id:'returnDate', label:'📅 Return visit date', type:'date', value:p.returnDate},
       {id:'returnSlot', label:'Slot', type:'select', value:p.returnSlot||'', options:['','AM','PM']},
+      {id:'vendorRef', label:'Vendor ref / marking', value:p.vendorRef, mono:true},
       {id:'notes', label:'Notes — customer comms', type:'textarea', value:p.notes},
     ],
     onSave: function(v){
       p.distributor = v.distributor; p.trackingNum = v.trackingNum.trim();
       p.etaOverride = v.etaOverride; p.jobNum = v.jobNum.trim();
       p.notes = v.notes; p.returnDate = v.returnDate; p.returnSlot = v.returnSlot;
+      p.vendorRef = v.vendorRef ? v.vendorRef.trim() : p.vendorRef;
       save('orders');
       syncOneNow('orders', p);
       if(typeof renderArrivals==='function') renderArrivals();
